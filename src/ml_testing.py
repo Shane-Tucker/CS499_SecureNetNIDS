@@ -2,6 +2,8 @@ import random
 import pandas as pd # For accessing the dataset
 import numpy as np
 from sklearn.cluster import KMeans
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
 
 # constants
 file_path = "dataset_test_random.data"
@@ -46,8 +48,15 @@ def main():
     data_numeric.info()
     print(data_numeric)
 
+    # Split the dataset into a training set and a testing set
+    data_train, data_test = train_test_split(data_numeric, test_size=0.2)
+
+    # Run various machine learning algorithms and measure their prediction accuracy for the given dataset
     randomGuess(data_numeric)
-    kmeans_test(data_numeric, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'])
+    kmeans_test(data_numeric, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'], 4)
+    knn_test(data_train, data_test, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'], 5)
+
+    return
 
 
 
@@ -93,16 +102,17 @@ def randomGuess(dataset: pd.DataFrame):
 
 
 # kmeans_test
-# Function to run kmeans clustering on the given dataset
+# Function to run k-means clustering on the given dataset
 # dataset: pandas DataFrame containing the preprocessed dataset
-# testCase: list of strings to select the columns in the dataset that will be used as input variables for the kmeans algorithm
-def kmeans_test(data: pd.DataFrame, testCase):
+# test_case: list of strings to select the columns in the dataset that will be used as input variables for the kmeans algorithm
+# cluster_count: the number of clusters to form using k-means clustering
+def kmeans_test(data: pd.DataFrame, test_case, cluster_count: int):
 
-    # Run K-Means Clustering for 2 clusters
-    kmeans_bin = KMeans(n_clusters=2, init='random', n_init='auto').fit(data[testCase])
+    # Run K-Means Clustering
+    kmeans = KMeans(n_clusters=cluster_count, init='random', n_init='auto').fit(data[test_case])
 
     # Create result matrix
-    result_matrix_bin = np.zeros((2,2), int)
+    result_matrix = np.zeros((2,cluster_count), int)
 
     # Row = Dataset Label, Column = Predicted Cluster
     for i in range(0, data.shape[0]):
@@ -111,13 +121,51 @@ def kmeans_test(data: pd.DataFrame, testCase):
         if (data.iloc[i].label == 0): row_pos = 0 # Good
         else: row_pos = 1                         # Bad
 
-        result_matrix_bin[row_pos][kmeans_bin.labels_[i]] = result_matrix_bin[row_pos][kmeans_bin.labels_[i]] + 1
+        result_matrix[row_pos][kmeans.labels_[i]] = result_matrix[row_pos][kmeans.labels_[i]] + 1
 
-    result_dataframe_bin = pd.DataFrame(result_matrix_bin, columns=['C0', 'C1'], index=['Good', 'Bad'])
+    result_dataframe_bin = pd.DataFrame(result_matrix, index=['Good', 'Bad'])
 
     # Output results
-    print('\nK-Means Clustering Results (2 Clusters):')
+    print('\nK-Means Clustering Results (', cluster_count, 'Clusters ):')
     print(result_dataframe_bin)
+
+    return
+
+
+
+# knn_test
+# Function to run k-nearest neighbors (knn) algorithm on the given dataset
+# data_train: pandas DataFrame containing the preprocessed training dataset
+# data_test: pandas DataFrame containing the preprocessed testing dataset
+# test_case: list of strings to select the columns in the dataset that will be used as input variables for the knn algorithm
+# k: the value of k in the knn algorithm. the number of closest entries in dataset to use for making a prediction
+def knn_test(data_train: pd.DataFrame, data_test: pd.DataFrame, test_case, k: int):
+
+    # Split the feature columns and label columns of the training set into two different numpy arrays
+    data_train_x = data_train[test_case]
+    data_train_y = data_train['label']
+
+    # Run knn on the dataset
+    knn = KNeighborsClassifier(n_neighbors=k).fit(data_train_x, data_train_y)
+    knn_result = knn.predict(data_test[test_case])
+
+    # Store count of correct/incorrect predictions
+    predictions_correct = 0
+    predictions_incorrect = 0
+
+    # Compare each prediction to its labeled value to determine prediction accuracy
+    for i in range(0, len(data_test)):
+        query = data_test.iloc[i]
+
+        if (knn_result[i] == query.label): predictions_correct += 1
+        else: predictions_incorrect += 1
+
+    # Output the results and accuracy of the predicted classification
+    print('\nKNN Results ( K = ', k, ')')
+    print('Correct: ', predictions_correct)
+    print('Incorrect: ', predictions_incorrect)
+    accuracy = (predictions_correct/len(data_test)) * 100
+    print('Accuracy: ', accuracy, '%\n\n')
 
     return
 
