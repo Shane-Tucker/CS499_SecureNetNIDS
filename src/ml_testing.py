@@ -56,7 +56,21 @@ def main():
     kmeans_test(data_numeric, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'], 4)
     knn_test(data_train, data_test, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'], 5)
 
+    #data_labeler = data.copy()
+    #data_labeler.insert(6, 'test', -1)
+    #data_labeler = testLabeler(data_labeler)
+    #print(data_labeler)
+
     return
+
+
+
+def testLabeler(dframe):
+
+    for i in range(0, len(dframe)):
+        dframe.loc[i, 'test'] = dframe.loc[i, 'frame_length'] + 3
+
+    return dframe
 
 
 
