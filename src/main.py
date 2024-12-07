@@ -1,13 +1,14 @@
 from scapy.all import *
 from network_functions import *
 import threading
+from queue import Queue
 
 # List to store captured packets
-packets = []
+packet_queue = Queue()
 
 # Callback function to process each packet
 def packet_callback(pkt):
-    packets.append(pkt)
+    packet_queue.put(pkt)
 
 # Function to start sniffing in the background
 def start_sniffing():
@@ -30,7 +31,13 @@ save_thread.daemon = True
 save_thread.start()
 
 try:
-    while True:
-        pass  # Infinite loop to keep the program running
+    while True: 
+        while not packet_queue.empty():
+            alerts = all_detection(packet_queue)
+            if not alerts.empty(): 
+                print(list(alerts.queue))
+            
+        time.sleep(5)
+        
 except KeyboardInterrupt:
     print("Sniffing stopped.")
