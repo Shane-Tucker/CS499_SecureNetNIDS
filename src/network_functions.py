@@ -2,6 +2,7 @@ import geocoder
 from socket import *
 from scapy.all import *
 from queue import Queue
+import daytime
 
 def all_detection(packets): 
     alerts = Queue()
@@ -36,21 +37,21 @@ def det_port_scan(packets, alerts):
                       #If set to 10, for example, if host A tries to attempt to 10+ ports on host B, considered an attempted scan
     while not packets.empty(): 
         p = packets.get()
-        if p.haslayer(IP) and p.haslayer(TCP):  # Ensure packet has IP and TCP layers
-            full_ip = f"{p[IP].src}_{p[IP].dst}"
-            if full_ip in counts: #Add to unique ports for ip pair
+        if p.haslayer('IP') and p.haslayer('TCP'):  # Ensure packet has IP and TCP layers
+            ack_flag = p['TCP'].flags & 0x10
+            full_ip = f"{p['IP'].src}_{p['IP'].dst}"
+            if full_ip in counts and not ack_flag: #Checks if ip is unique and ACK is not set
                 if p.dport not in counts[full_ip]: 
                     counts[full_ip].append(p.dport)
-            else: 
+            elif not ack_flag: 
                 counts.update({full_ip:[p.dport]})
                     
     for i in counts: 
         if len(counts[i]) >= min_att_ports: #Compares the list of unique ports to the set minimum
             divide = i.find("_") #Splits the string into source and dest ip
-            ip_src = i[0:divide]
-            ip_dst = i[divide + 1:]
-            message = "Potential port scan from " + ip_src + " to " + ip_dst #Creates message
-            alerts.put(message)
+            alert = ["port scan", i[0:divide], i[divide + 1:], "low", datetime.now()] 
+            #ip_src = i[0:divide] / ip_dst = i[divide + 1:]
+            alerts.put(alert)
             
 #Built in port scanner to find vulnerabilities on network
 #scan_port is what actually detects if the port is open or not
