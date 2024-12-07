@@ -163,3 +163,8 @@ cython_debug/
 
 # SecureNet Dataset Files
 src/dataset/*
+!src/dataset/*/
+src/dataset/raw/*
+src/dataset/preprocessed/*
+!src/dataset/raw/dataset_random.csv
+!src/dataset/preprocessed/dataset_random_preprocessed.csv

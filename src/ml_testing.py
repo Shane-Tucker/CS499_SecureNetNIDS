@@ -18,74 +18,15 @@ def main():
     data.info()
     print(data)
 
-    # Convert dataset to purely numeric values
-    data_numeric = data.copy()
-    data_numeric.insert(1, 'src_ip1', 0)
-    data_numeric.insert(2, 'src_ip2', 0)
-    data_numeric.insert(3, 'src_ip3', 0)
-    data_numeric.insert(4, 'src_ip4', 0)
-    data_numeric.insert(6, 'dst_ip1', 0)
-    data_numeric.insert(7, 'dst_ip2', 0)
-    data_numeric.insert(8, 'dst_ip3', 0)
-    data_numeric.insert(9, 'dst_ip4', 0)
-
-    for i in range(0, len(data_numeric)):
-        ip1,ip2,ip3,ip4 = ipv4StringToInt(data_numeric.loc[i,'src_ip'])
-        data_numeric.loc[i, 'src_ip1'] = ip1
-        data_numeric.loc[i, 'src_ip2'] = ip2
-        data_numeric.loc[i, 'src_ip3'] = ip3
-        data_numeric.loc[i, 'src_ip4'] = ip4
-
-        ip1,ip2,ip3,ip4 = ipv4StringToInt(data_numeric.loc[i,'dst_ip'])
-        data_numeric.loc[i, 'dst_ip1'] = ip1
-        data_numeric.loc[i, 'dst_ip2'] = ip2
-        data_numeric.loc[i, 'dst_ip3'] = ip3
-        data_numeric.loc[i, 'dst_ip4'] = ip4
-
-    data_numeric = data_numeric.replace({'label': {'Good': 0, 'Bad': 1}})
-
-
-    data_numeric.info()
-    print(data_numeric)
-
     # Split the dataset into a training set and a testing set
-    data_train, data_test = train_test_split(data_numeric, test_size=0.2)
+    data_train, data_test = train_test_split(data, test_size=0.2)
 
     # Run various machine learning algorithms and measure their prediction accuracy for the given dataset
-    randomGuess(data_numeric)
-    kmeans_test(data_numeric, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'], 4)
+    randomGuess(data)
+    kmeans_test(data, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'], 4)
     knn_test(data_train, data_test, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'], 5)
 
-    #data_labeler = data.copy()
-    #data_labeler.insert(6, 'test', -1)
-    #data_labeler = testLabeler(data_labeler)
-    #print(data_labeler)
-
     return
-
-
-
-def testLabeler(dframe):
-
-    for i in range(0, len(dframe)):
-        dframe.loc[i, 'test'] = dframe.loc[i, 'frame_length'] + 3
-
-    return dframe
-
-
-
-# Function to convert a string containing an IPv4 address into 4 integer values, one for each segment of the IP address
-def ipv4StringToInt(ip: str):
-    s1,s2,s3,s4 = 0,0,0,0
-    split_ip = ip.split('.')
-
-    #TODO: make sure input string can be coverted to an int
-    s1 = int(split_ip[0])
-    s2 = int(split_ip[1])
-    s3 = int(split_ip[2])
-    s4 = int(split_ip[3])
-
-    return s1,s2,s3,s4
 
 
 
