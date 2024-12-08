@@ -2,14 +2,19 @@ import geocoder
 from socket import *
 from scapy.all import *
 from queue import Queue
-import daytime
+import datetime
 
-def all_detection(packets): 
-    alerts = Queue()
-    
+def all_detection(packets, alerts):     
     threads = [] #Keep track of threads
+    ps_packets = Queue()
+
+    #Queues elements are removed when they are looked at, so a copy of the queue is made for each different detection type
+    #This ensures that each detection type gets every packet, and that thread A does not pop a packet that thread B needed
+    while not packets.empty(): 
+        p = packets.get()
+        ps_packets.put(p)
     #Start port scan detection
-    det_port_scan_thread = threading.Thread(target=det_port_scan, args=(packets, alerts,))
+    det_port_scan_thread = threading.Thread(target=det_port_scan, args=(ps_packets, alerts,))
     det_port_scan_thread.daemon = True
     threads.append(det_port_scan_thread)
     det_port_scan_thread.start()
@@ -35,7 +40,7 @@ def det_port_scan(packets, alerts):
     counts = {} #Dict to keep track of all src to dst packets
     min_att_ports = 10 #Sets a minimum of the amount of ports that an host needs to try to connect to to be considered a scan
                       #If set to 10, for example, if host A tries to attempt to 10+ ports on host B, considered an attempted scan
-    while not packets.empty(): 
+    while not packets.empty():
         p = packets.get()
         if p.haslayer('IP') and p.haslayer('TCP'):  # Ensure packet has IP and TCP layers
             ack_flag = p['TCP'].flags & 0x10
@@ -49,7 +54,8 @@ def det_port_scan(packets, alerts):
     for i in counts: 
         if len(counts[i]) >= min_att_ports: #Compares the list of unique ports to the set minimum
             divide = i.find("_") #Splits the string into source and dest ip
-            alert = ["port scan", i[0:divide], i[divide + 1:], "low", datetime.now()] 
+            current_time = datetime.datetime.now()
+            alert = ["port scan", i[0:divide], i[divide + 1:], "low", current_time.strftime("%H:%M")] 
             #ip_src = i[0:divide]
             #ip_dst = i[divide + 1:]
             alerts.put(alert)
