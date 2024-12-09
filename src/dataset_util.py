@@ -82,28 +82,34 @@ def dataset_preprocessing(file, columns):
     data.info()
     print(data)
 
-    # Convert dataset to purely numeric values
-    data.insert(1, 'src_ip1', 0)
-    data.insert(2, 'src_ip2', 0)
-    data.insert(3, 'src_ip3', 0)
-    data.insert(4, 'src_ip4', 0)
-    data.insert(6, 'dst_ip1', 0)
-    data.insert(7, 'dst_ip2', 0)
-    data.insert(8, 'dst_ip3', 0)
-    data.insert(9, 'dst_ip4', 0)
-
+    #data.insert(1, 'src_ip1', 0.0)
+    #data.insert(3, 'dst_ip1', 0.0)
     for i in range(0, len(data)):
-        ip1,ip2,ip3,ip4 = ipv4StringToInt(data.loc[i,'src_ip'])
-        data.loc[i, 'src_ip1'] = ip1
-        data.loc[i, 'src_ip2'] = ip2
-        data.loc[i, 'src_ip3'] = ip3
-        data.loc[i, 'src_ip4'] = ip4
+        data.loc[i, 'src_ip'] = ipv4StringToFloat(data.loc[i, 'src_ip'])
+        data.loc[i, 'dst_ip'] = ipv4StringToFloat(data.loc[i, 'dst_ip'])
 
-        ip1,ip2,ip3,ip4 = ipv4StringToInt(data.loc[i,'dst_ip'])
-        data.loc[i, 'dst_ip1'] = ip1
-        data.loc[i, 'dst_ip2'] = ip2
-        data.loc[i, 'dst_ip3'] = ip3
-        data.loc[i, 'dst_ip4'] = ip4
+    # Convert dataset to purely numeric values
+    # data.insert(1, 'src_ip1', 0)
+    # data.insert(2, 'src_ip2', 0)
+    # data.insert(3, 'src_ip3', 0)
+    # data.insert(4, 'src_ip4', 0)
+    # data.insert(6, 'dst_ip1', 0)
+    # data.insert(7, 'dst_ip2', 0)
+    # data.insert(8, 'dst_ip3', 0)
+    # data.insert(9, 'dst_ip4', 0)
+
+    # for i in range(0, len(data)):
+    #     ip1,ip2,ip3,ip4 = ipv4StringToInt(data.loc[i,'src_ip'])
+    #     data.loc[i, 'src_ip1'] = ip1
+    #     data.loc[i, 'src_ip2'] = ip2
+    #     data.loc[i, 'src_ip3'] = ip3
+    #     data.loc[i, 'src_ip4'] = ip4
+
+    #     ip1,ip2,ip3,ip4 = ipv4StringToInt(data.loc[i,'dst_ip'])
+    #     data.loc[i, 'dst_ip1'] = ip1
+    #     data.loc[i, 'dst_ip2'] = ip2
+    #     data.loc[i, 'dst_ip3'] = ip3
+    #     data.loc[i, 'dst_ip4'] = ip4
 
     #data = data.replace({'label': {'Good': 0, 'Bad': 1}})
 
@@ -138,6 +144,23 @@ def ipv4StringToInt(ip: str):
     s4 = int(split_ip[3])
 
     return s1,s2,s3,s4
+
+
+
+# Function to convert a string containing an IPv4 address into a float
+def ipv4StringToFloat(ip: str):
+    split_ip = ip.split('.')
+
+    # Append leading 0's to any ip segment with a value of less than 100 to give every segment a 3-digit length
+    for i in range(1, len(split_ip)):
+        if len(split_ip[i]) == 2: split_ip[i] = '0' + split_ip[i]
+        elif len(split_ip[i]) == 1: split_ip[i] = '00' + split_ip[i]
+
+    float_ready_string = split_ip[0] + '.' + split_ip[1] + split_ip[2] + split_ip[3]
+    return float_ready_string
+    #ip_float = float(float_ready_string)
+
+    #return ip_float
 
 
 

@@ -4,17 +4,19 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
+#import matplotlib.pyplot as plt
 
 # constants
-file_path = "dataset_test_random.data"
+#file_path = "./dataset/preprocessed/dataset_random_preprocessed.csv"
+file_path = "./dataset/preprocessed/dataset_raw_2024-12-07_preprocessed.csv"
 column_names = ['src_ip','dst_ip','src_port','dst_port','frame_length','label']
 
 
 
-def main():
+def run_test():
 
     # Read in dataset
-    data = pd.read_csv(file_path, header=None, names=column_names)
+    data = pd.read_csv(file_path, header=0, names=column_names)
     data.info()
     print(data)
 
@@ -22,9 +24,13 @@ def main():
     data_train, data_test = train_test_split(data, test_size=0.2)
 
     # Run various machine learning algorithms and measure their prediction accuracy for the given dataset
-    randomGuess(data)
-    kmeans_test(data, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'], 4)
-    knn_test(data_train, data_test, ['src_ip1','src_ip2','src_ip3','src_ip4','dst_ip1','dst_ip2','dst_ip3','dst_ip4','src_port','dst_port','frame_length'], 5)
+    randomGuess(data_test)
+    
+    knn_model = knn_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 5)
+    knn_test(knn_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 5)
+
+    kmeans_model = kmeans_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 2)
+    kmeans_test(kmeans_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 2)
 
     return
 
@@ -56,15 +62,29 @@ def randomGuess(dataset: pd.DataFrame):
 
 
 
-# kmeans_test
-# Function to run k-means clustering on the given dataset
-# dataset: pandas DataFrame containing the preprocessed dataset
+# kmeans_train
+# Function to train the model for k-means clustering on the given dataset
+# data: pandas DataFrame containing the preprocessed training dataset
 # test_case: list of strings to select the columns in the dataset that will be used as input variables for the kmeans algorithm
 # cluster_count: the number of clusters to form using k-means clustering
-def kmeans_test(data: pd.DataFrame, test_case, cluster_count: int):
+def kmeans_train(data: pd.DataFrame, test_case, cluster_count: int):
+
+    # Run K-Means Clustering on the dataset
+    model = KMeans(n_clusters=cluster_count, init='random', n_init='auto').fit(data[test_case])
+
+    return model
+
+
+
+# kmeans_test
+# Function to run the k-means clustering model to predict the given dataset
+# data: pandas DataFrame containing the preprocessed testing dataset
+# test_case: list of strings to select the columns in the dataset that will be used as input variables for the kmeans algorithm
+# cluster_count: the number of clusters to form using k-means clustering
+def kmeans_test(model, data: pd.DataFrame, test_case, cluster_count: int):
 
     # Run K-Means Clustering
-    kmeans = KMeans(n_clusters=cluster_count, init='random', n_init='auto').fit(data[test_case])
+    kmeans = model.predict(data[test_case])
 
     # Create result matrix
     result_matrix = np.zeros((2,cluster_count), int)
@@ -76,33 +96,45 @@ def kmeans_test(data: pd.DataFrame, test_case, cluster_count: int):
         if (data.iloc[i].label == 0): row_pos = 0 # Good
         else: row_pos = 1                         # Bad
 
-        result_matrix[row_pos][kmeans.labels_[i]] = result_matrix[row_pos][kmeans.labels_[i]] + 1
+        result_matrix[row_pos][kmeans[i]] = result_matrix[row_pos][kmeans[i]] + 1
 
-    result_dataframe_bin = pd.DataFrame(result_matrix, index=['Good', 'Bad'])
+    result_dataframe= pd.DataFrame(result_matrix, index=['Good', 'Bad'])
 
     # Output results
     print('\nK-Means Clustering Results (', cluster_count, 'Clusters ):')
-    print(result_dataframe_bin)
+    print(result_dataframe)
 
     return
 
 
 
-# knn_test
-# Function to run k-nearest neighbors (knn) algorithm on the given dataset
-# data_train: pandas DataFrame containing the preprocessed training dataset
-# data_test: pandas DataFrame containing the preprocessed testing dataset
+# knn_train
+# Function to train the model for the k-nearest neighbors (knn) algorithm on the given dataset
+# data: pandas DataFrame containing the preprocessed training dataset
 # test_case: list of strings to select the columns in the dataset that will be used as input variables for the knn algorithm
 # k: the value of k in the knn algorithm. the number of closest entries in dataset to use for making a prediction
-def knn_test(data_train: pd.DataFrame, data_test: pd.DataFrame, test_case, k: int):
+def knn_train(data: pd.DataFrame, test_case, k: int):
 
     # Split the feature columns and label columns of the training set into two different numpy arrays
-    data_train_x = data_train[test_case]
-    data_train_y = data_train['label']
+    data_x = data[test_case]
+    data_y = data['label']
 
     # Run knn on the dataset
-    knn = KNeighborsClassifier(n_neighbors=k).fit(data_train_x, data_train_y)
-    knn_result = knn.predict(data_test[test_case])
+    model = KNeighborsClassifier(n_neighbors=k).fit(data_x, data_y)
+    
+    return model
+
+
+
+# knn_test
+# Function to run the k-nearest neighbors model to predict the given dataset
+# model: trained knn model used for making predictions
+# data: pandas DataFrame containing the preprocessed testing dataset
+# test_case: list of strings to select the columns in the dataset that will be used as input variables for the knn algorithm
+# k: the value of k in the knn algorithm. the number of closest entries in dataset to use for making a prediction
+def knn_test(model, data_test: pd.DataFrame, test_case, k: int):
+    
+    knn_result = model.predict(data_test[test_case])
 
     # Store count of correct/incorrect predictions
     predictions_correct = 0
@@ -128,4 +160,4 @@ def knn_test(data_train: pd.DataFrame, data_test: pd.DataFrame, test_case, k: in
 
 # Program start
 if __name__ == "__main__":
-    main()
+    run_test()
