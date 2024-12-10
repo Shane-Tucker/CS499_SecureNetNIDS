@@ -3,21 +3,41 @@ from socket import *
 from scapy.all import *
 from queue import Queue
 import datetime
+import statistics
+
+arp_dict = {} #Initiate dictionary used for ARP Poisoning
+avg_net_rate = Queue(maxsize=12) #Initiate average network rate for ddos detection
+num_cyc = 0 #Initiate for ddos detection. Is a counter for how many times the detection has been ran
 
 def all_detection(packets, alerts):     
     threads = [] #Keep track of threads
     ps_packets = Queue()
+    arp_pois_packets = Queue()
+    num_packets = len(packets)
 
     #Queues elements are removed when they are looked at, so a copy of the queue is made for each different detection type
     #This ensures that each detection type gets every packet, and that thread A does not pop a packet that thread B needed
     while not packets.empty(): 
         p = packets.get()
         ps_packets.put(p)
+        arp_pois_packets.put(p)
     #Start port scan detection
     det_port_scan_thread = threading.Thread(target=det_port_scan, args=(ps_packets, alerts,))
     det_port_scan_thread.daemon = True
     threads.append(det_port_scan_thread)
     det_port_scan_thread.start()
+    
+    #Start arp poisoning detection
+    det_arp_pois_thread = threading.Thread(target=arp_poisoning_detection, args=(arp_pois_packets, alerts,))
+    det_arp_pois_thread.daemon = True
+    threads.append(det_arp_pois_thread)
+    det_arp_pois_thread.start()
+    
+    #Start ddos detection
+    det_ddos_thread = threading.Thread(target=arp_poisoning_detection, args=(ddos_detection, alerts,))
+    det_ddos_thread.daemon = True
+    threads.append(det_ddos_thread)
+    det_ddos_thread.start()
     
     for thread in threads: 
         thread.join()
@@ -60,6 +80,35 @@ def det_port_scan(packets, alerts):
             #ip_dst = i[divide + 1:]
             alerts.put(alert)
             
+#Works by creating a table of IPs and associated MAC addresses. If one is changed, potential ARP poisoning and alert is issued. 
+def arp_poisoning_detection(packets, alerts):
+    while not packets.empty(): 
+        p = packets.get()
+        if p.haslayer('ARP') and p['ARP'].op == 2: #Checks if ARP and if response
+            ip_src = p['ARP'].psrc
+            mac_src = p['ARP'].hwsrc
+            if ip_src in arp_dict and arp_dict[ip_src] != mac_src: #Checks if ip is in dictionary already and if it matches or not
+                alert = ["arp poisoning", arp_dict[ip_src], mac_src, "medium", datetime.datetime.now().strftime("%H:%M"), ip_src] #Creates alert if IP and MAC do not match
+                alerts.put(alert)
+            else: #Add if no entry in dict
+                arp_dict[ip_src] = mac_src
+      
+#Keeps a queue of last 12 (last minute) entries of the # of packets collected. If newest is abnormally large, sends alert for potential ddos
+def ddos_detection(num_packets, alerts): 
+    if avg_net_rate.full(): 
+        avg_net_rate.pop(0)
+        avg_net_rate.append(num_packets)
+    else: 
+        avg_net_rate.append(num_packets)
+    avg_rate = sum(avg_net_rate) / len(avg_net_rate)
+    std_dev = statistics.stddev(avg_net_rate)
+    
+    #If num_packets is abnormally large, send alert
+    #3 comes from 68-95-99.7 rule, basically meaning that 3 standard deviations contains 99.7% of data
+    if num_packets > avg_net_rate + 3 * std_dev: 
+        alert = ["ddos detected", "N/A", "N/A", "high", datetime.datetime.now().strftime("%H:%M")]
+        alerts.append(alert)
+        
 #Built in port scanner to find vulnerabilities on network
 #scan_port is what actually detects if the port is open or not
 def scan_port(ip, port, open_ports, lock): 
