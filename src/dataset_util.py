@@ -2,6 +2,7 @@ import pandas as pd # For accessing the dataset
 import random
 from dataclasses import dataclass
 from os import path, makedirs
+import time
 
 
 
@@ -16,6 +17,8 @@ class dataset_entry():
 
 
 
+# run_datagen_selector
+#
 def run_datagen_selector():
     user_input = input("Enter dataset file name (or 'random' to generate a random dataset): ")
     column_names = ['src_ip','dst_ip','src_port','dst_port','frame_length']
@@ -24,6 +27,9 @@ def run_datagen_selector():
         while(user_input.isdigit() == False or int(user_input) <= 0):
             user_input = input("Enter the number of entries to include in the random dataset: ")
         generate_random_dataset(int(user_input))
+    elif(user_input == 'today'):
+        user_input = './dataset/raw/dataset_' + time.strftime('%Y-%m-%d') + '.csv'
+        dataset_preprocessing(user_input, column_names)
     elif path.exists(user_input):
         dataset_preprocessing(user_input, column_names)
     else:
@@ -34,24 +40,24 @@ def run_datagen_selector():
 # Function to generate a dataset consisting of N randomly generated entries
 def generate_random_dataset(N: int):
 
-    fileName = 'dataset_random'
-    filePath = './dataset/raw'
-    fileFormat = '.csv'
+    file_name = 'dataset_random'
+    file_path = './dataset/raw'
+    file_format = '.csv'
 
     # Check if folder to store output files exist, if not create folder
-    if not path.isdir(filePath):
-        makedirs(filePath)
+    if not path.isdir(file_path):
+        makedirs(file_path)
 
-    outputFileName = filePath + '/' + fileName + fileFormat
-    outputFile = open(outputFileName, 'w')
+    output_file_name = file_path + '/' + file_name + file_format
+    output_file = open(output_file_name, 'w')
 
     for i in range(0,N):
         src_ip = str(random.randint(0,255)) + "." + str(random.randint(0,255)) + "." + str(random.randint(0,255)) + "." + str(random.randint(0,255))
         dst_ip = str(random.randint(0,255)) + "." + str(random.randint(0,255)) + "." + str(random.randint(0,255)) + "." + str(random.randint(0,255))
         testEntry = dataset_entry(src_ip,dst_ip,random.randint(0,65535),random.randint(0,65535),random.randint(0,2000))
-        outputFile.write(write_dataset_entry(testEntry))
+        output_file.write(write_dataset_entry(testEntry))
 
-    outputFile.close()
+    output_file.close()
 
 
 
@@ -59,72 +65,43 @@ def generate_random_dataset(N: int):
 def write_dataset_entry(entry: dataset_entry) -> str:
 
     # Create movement data string using the data passed to the function
-    newEntry = ""
-    newEntry += str(entry.src_ip) + ","
-    newEntry += str(entry.dst_ip) + ","
-    newEntry += str(entry.src_port) + ","
-    newEntry += str(entry.dst_port) + ","
-    newEntry += str(entry.frame_length) + "\n"
+    new_entry = ""
+    new_entry += str(entry.src_ip) + ","
+    new_entry += str(entry.dst_ip) + ","
+    new_entry += str(entry.src_port) + ","
+    new_entry += str(entry.dst_port) + ","
+    new_entry += str(entry.frame_length) + "\n"
 
-    return newEntry
+    return new_entry
 
 
 
+# dataset_preprocessing
+#
 def dataset_preprocessing(file, columns):
 
     # Read in dataset
     data = pd.read_csv(file, header=None, names=columns)
-    data.info()
-    print(data)
 
+    # Add classification labels to the dataset
     data.insert(5, 'label', -1)
     data = labeler_test1(data)
-    data.info()
-    print(data)
 
-    #data.insert(1, 'src_ip1', 0.0)
-    #data.insert(3, 'dst_ip1', 0.0)
+    # Convert string IP addresses to floats
     for i in range(0, len(data)):
-        data.loc[i, 'src_ip'] = ipv4StringToFloat(data.loc[i, 'src_ip'])
-        data.loc[i, 'dst_ip'] = ipv4StringToFloat(data.loc[i, 'dst_ip'])
+        data.loc[i, 'src_ip'] = ipv4_string_to_float(data.loc[i, 'src_ip'])
+        data.loc[i, 'dst_ip'] = ipv4_string_to_float(data.loc[i, 'dst_ip'])
 
-    # Convert dataset to purely numeric values
-    # data.insert(1, 'src_ip1', 0)
-    # data.insert(2, 'src_ip2', 0)
-    # data.insert(3, 'src_ip3', 0)
-    # data.insert(4, 'src_ip4', 0)
-    # data.insert(6, 'dst_ip1', 0)
-    # data.insert(7, 'dst_ip2', 0)
-    # data.insert(8, 'dst_ip3', 0)
-    # data.insert(9, 'dst_ip4', 0)
-
-    # for i in range(0, len(data)):
-    #     ip1,ip2,ip3,ip4 = ipv4StringToInt(data.loc[i,'src_ip'])
-    #     data.loc[i, 'src_ip1'] = ip1
-    #     data.loc[i, 'src_ip2'] = ip2
-    #     data.loc[i, 'src_ip3'] = ip3
-    #     data.loc[i, 'src_ip4'] = ip4
-
-    #     ip1,ip2,ip3,ip4 = ipv4StringToInt(data.loc[i,'dst_ip'])
-    #     data.loc[i, 'dst_ip1'] = ip1
-    #     data.loc[i, 'dst_ip2'] = ip2
-    #     data.loc[i, 'dst_ip3'] = ip3
-    #     data.loc[i, 'dst_ip4'] = ip4
-
-    #data = data.replace({'label': {'Good': 0, 'Bad': 1}})
-
-    data.info()
-    print(data)
-
+    # Save the preprocessed dataset to a .csv file
     file_name = path.basename(file)
     file_name, ext = path.splitext(file_name)
-    filePath = './dataset/preprocessed'
-    fileFormat = '.csv'
-    file_name = filePath + '/' + file_name + '_preprocessed' + fileFormat
+    file_path = './dataset/preprocessed'
+    file_format = '.csv'
+    file_name = file_path + '/' + file_name + '_preprocessed' + file_format
 
     # Check if folder to store output files exist, if not create folder
-    if not path.isdir(filePath):
-        makedirs(filePath)
+    if not path.isdir(file_path):
+        makedirs(file_path)
 
     data.to_csv(file_name, sep=',', header=True, index=None)
 
@@ -132,23 +109,9 @@ def dataset_preprocessing(file, columns):
 
 
 
-# Function to convert a string containing an IPv4 address into 4 integer values, one for each segment of the IP address
-def ipv4StringToInt(ip: str):
-    s1,s2,s3,s4 = 0,0,0,0
-    split_ip = ip.split('.')
-
-    #TODO: make sure input string can be coverted to an int
-    s1 = int(split_ip[0])
-    s2 = int(split_ip[1])
-    s3 = int(split_ip[2])
-    s4 = int(split_ip[3])
-
-    return s1,s2,s3,s4
-
-
-
+# ipv4_string_to_float
 # Function to convert a string containing an IPv4 address into a float
-def ipv4StringToFloat(ip: str):
+def ipv4_string_to_float(ip: str):
     split_ip = ip.split('.')
 
     # Append leading 0's to any ip segment with a value of less than 100 to give every segment a 3-digit length
@@ -158,9 +121,19 @@ def ipv4StringToFloat(ip: str):
 
     float_ready_string = split_ip[0] + '.' + split_ip[1] + split_ip[2] + split_ip[3]
     return float_ready_string
-    #ip_float = float(float_ready_string)
 
-    #return ip_float
+
+
+# ipv4_float_to_string
+# Function to convert a float containing an IPv4 address into a string
+def ipv4_float_to_string(ip: float):
+    str_ip = str(ip)
+
+    split_ip = str_ip.split('.')
+
+    full_str_ip = split_ip[0] + '.' + split_ip[1][0:3] + '.' + split_ip[1][3:6] + '.' + split_ip[1][6:9]
+
+    return full_str_ip
 
 
 
@@ -179,5 +152,6 @@ def labeler_test1(dataset):
 
 
 # Program start
+# Run dataset generation function if dataset_util.py is ran directly
 if __name__ == "__main__":
     run_datagen_selector()
