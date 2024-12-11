@@ -2,7 +2,6 @@ import sys
 import psutil
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QTableWidget, QTableWidgetItem, QWidget, QLineEdit, QDialog, QDialogButtonBox
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtWidgets import QTableWidgetItem
 from datetime import datetime
 
 class IPDialog(QDialog):
@@ -80,8 +79,8 @@ class MainWindow(QMainWindow):
         self.apply_stylesheet()
 
     def start_monitoring(self):
-        self.timer.start(1000)  # Update every second
-        self.network_label.setText("Monitoring started...")
+        # Dummy function for start monitoring
+        print("Start monitoring...")
 
     def stop_monitoring(self):
         self.timer.stop()
@@ -97,11 +96,11 @@ class MainWindow(QMainWindow):
         for nic, counter in counters.items():
             row_position = self.network_table.rowCount()
             self.network_table.insertRow(row_position)
-            self.network_table.setItem(row_position, 0, QTableWidgetItem("Now"))  # Placeholder for time
-            self.network_table.setItem(row_position, 1, QTableWidgetItem(nic))
             # Get the current date and time
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             self.network_table.setItem(row_position, 0, QTableWidgetItem(current_time))
+            self.network_table.setItem(row_position, 1, QTableWidgetItem(nic))
+            self.network_table.setItem(row_position, 2, QTableWidgetItem("Destination IP"))  # Placeholder for destination IP
             self.network_table.setItem(row_position, 3, QTableWidgetItem(f"{counter.bytes_sent} Bytes Sent, {counter.bytes_recv} Bytes Received"))
             self.network_table.setItem(row_position, 4, QTableWidgetItem("No"))  # Placeholder for flagged
 
