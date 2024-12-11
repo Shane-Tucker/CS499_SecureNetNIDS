@@ -5,7 +5,7 @@ from queue import Queue
 import datetime
 import numpy
 
-def all_detection(packets, alerts, arp_dict, avg_net_rate, running_total, ddos_anom):  
+def all_detection(packets, alerts, arp_dict, avg_net_rate, ddos_anom):  
     threads = [] #Keep track of threads
     ps_packets = Queue()
     arp_pois_packets = Queue()
@@ -17,6 +17,7 @@ def all_detection(packets, alerts, arp_dict, avg_net_rate, running_total, ddos_a
         p = packets.get()
         ps_packets.put(p)
         arp_pois_packets.put(p)
+        
     #Start port scan detection
     det_port_scan_thread = threading.Thread(target=det_port_scan, args=(ps_packets, alerts,))
     det_port_scan_thread.daemon = True
@@ -30,7 +31,7 @@ def all_detection(packets, alerts, arp_dict, avg_net_rate, running_total, ddos_a
     det_arp_pois_thread.start()
     
     #Start ddos detection
-    det_ddos_thread = threading.Thread(target=ddos_detection, args=(num_packets, alerts, avg_net_rate, running_total, ddos_anom, ))
+    det_ddos_thread = threading.Thread(target=ddos_detection, args=(num_packets, alerts, avg_net_rate, ddos_anom,))
     det_ddos_thread.daemon = True
     threads.append(det_ddos_thread)
     det_ddos_thread.start()
@@ -71,9 +72,9 @@ def det_port_scan(packets, alerts):
         if len(counts[i]) >= min_att_ports: #Compares the list of unique ports to the set minimum
             divide = i.find("_") #Splits the string into source and dest ip
             current_time = datetime.datetime.now()
-            alert = ["port scan", i[0:divide], i[divide + 1:], "low", current_time.strftime("%H:%M")] 
             #ip_src = i[0:divide]
             #ip_dst = i[divide + 1:]
+            alert = ["port scan", i[0:divide], i[divide + 1:], "low", current_time.strftime("%H:%M")] 
             alerts.put(alert)
             
 #Works by creating a table of IPs and associated MAC addresses. If one is changed, potential ARP poisoning and alert is issued. 
@@ -90,31 +91,29 @@ def arp_poisoning_detection(packets, alerts, arp_dict):
                 arp_dict[ip_src] = mac_src
       
 #Keeps a queue of last 120 entries of the # of packets collected. If newest is abnormally large, sends alert for potential ddos
-def ddos_detection(num_packets, alerts, avg_net_rate, running_total, ddos_anom): 
+def ddos_detection(num_packets, alerts, avg_net_rate, ddos_anom): 
     if avg_net_rate.full(): 
-        oldest_rate = avg_net_rate.get()
-        running_total = running_total - oldest_rate + num_packets
-        avg_net_rate.put(num_packets)
-    else: 
-        running_total = running_total + num_packets
-        avg_net_rate.put(num_packets)
-    
+        avg_net_rate.get() #Make room for next input if queue is full
+    elif avg_net_rate.qsize() <= 12:
+        avg_net_rate.put(num_packets) #Add until greater than 12 so that the rest can take over
+        
     if avg_net_rate.qsize() >= 12: #Only run after 12+ iterations of data has been collected (~1 minute)
         avg_net_rate_list = list(avg_net_rate.queue)
-        avg_rate = running_total / len(avg_net_rate_list)
-        high_threshold = numpy.percentile(avg_net_rate_list, 99) #Finds the 99th percentile based on the current queue
+        high_threshold = numpy.percentile(avg_net_rate_list, 99.7) #Finds the 99.7th percentile based on the current queue (based on 68-95-99.7 rule)
         #If num_packets is abnormally large, send alert
         if num_packets > high_threshold: 
-            ddos_anom += 1
-            if ddos_anom == 3: #If num_packets is high 3 times in a row, alert as ddos
+            if ddos_anom[0] >= 5:
                 alert = ["ddos", "N/A", "N/A", "high", datetime.datetime.now().strftime("%H:%M")]
                 alerts.put(alert)
-            elif ddos_anom == 2: 
-                pass
-            else: 
+            elif ddos_anom[0] == 2: #If traffic spike lasts than more than a couple seconds, send alert for high traffic
                 alert = ["high traffic", "N/A", "N/A", "low", datetime.datetime.now().strftime("%H:%M")]
+                alerts.put(alert)
+            ddos_anom[0] = ddos_anom[0] + 1
         else: 
-            ddos_anom = 0 #Reset counter
+            avg_net_rate.put(num_packets) #Add num_packets to the counter
+                                          #Purposefully does not put if high traffic so that threshold is not skewed
+            ddos_anom[0] = 0 #Reset counter
+
         
 #Built in port scanner to find vulnerabilities on network
 #scan_port is what actually detects if the port is open or not

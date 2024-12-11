@@ -34,15 +34,14 @@ try:
     alerts = Queue()
     arp_dict = {} #Initiate dictionary used for ARP Poisoning
     avg_net_rate = Queue(maxsize=120) #Initiate average network rate for ddos detection
-    running_total = 0 #Initiate for ddos detection. Is a counter for the total number of packets in avg_net_rate
-    ddos_anom = 0
+    ddos_anom = [0] #Python is pass-by-object-reference, so make this an object so it passes properly
     while True: 
         while not packet_queue.empty():
-            alerts = all_detection(packet_queue, alerts, arp_dict, avg_net_rate, running_total, ddos_anom)
+            alerts = all_detection(packet_queue, alerts, arp_dict, avg_net_rate, ddos_anom)
             while not alerts.empty(): 
                 alert = alerts.get()
                 print(alert)
-            time.sleep(5)
+            time.sleep(1)
         time.sleep(5)
         
 except KeyboardInterrupt:
