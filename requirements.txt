@@ -1,3 +1,4 @@
 scapy==2.6.0
 geocoder==1.38.1
 daytime==0.4
+numpuy==2.2.0

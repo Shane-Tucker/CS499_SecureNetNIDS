@@ -3,16 +3,14 @@ from socket import *
 from scapy.all import *
 from queue import Queue
 import datetime
-import statistics
+import numpy
 
-def all_detection(packets, alerts, arp_dict, avg_net_rate, running_total):  
+def all_detection(packets, alerts, arp_dict, avg_net_rate, running_total, ddos_anom):  
     threads = [] #Keep track of threads
     ps_packets = Queue()
     arp_pois_packets = Queue()
     num_packets = packets.qsize()
     
-    ddos_detection(num_packets, alerts, avg_net_rate, running_total)
-
     #Queues elements are removed when they are looked at, so a copy of the queue is made for each different detection type
     #This ensures that each detection type gets every packet, and that thread A does not pop a packet that thread B needed
     while not packets.empty(): 
@@ -26,16 +24,16 @@ def all_detection(packets, alerts, arp_dict, avg_net_rate, running_total):
     det_port_scan_thread.start()
     
     #Start arp poisoning detection
-    det_arp_pois_thread = threading.Thread(target=arp_poisoning_detection, args=(arp_pois_packets, alerts, arp_dict))
+    det_arp_pois_thread = threading.Thread(target=arp_poisoning_detection, args=(arp_pois_packets, alerts, arp_dict,))
     det_arp_pois_thread.daemon = True
     threads.append(det_arp_pois_thread)
     det_arp_pois_thread.start()
     
-    '''#Start ddos detection
-    det_ddos_thread = threading.Thread(target=ddos_detection, args=(num_packets, alerts, avg_net_rate, running_total))
+    #Start ddos detection
+    det_ddos_thread = threading.Thread(target=ddos_detection, args=(num_packets, alerts, avg_net_rate, running_total, ddos_anom, ))
     det_ddos_thread.daemon = True
     threads.append(det_ddos_thread)
-    det_ddos_thread.start()'''
+    det_ddos_thread.start()
     
     for thread in threads: 
         thread.join()
@@ -92,7 +90,7 @@ def arp_poisoning_detection(packets, alerts, arp_dict):
                 arp_dict[ip_src] = mac_src
       
 #Keeps a queue of last 120 entries of the # of packets collected. If newest is abnormally large, sends alert for potential ddos
-def ddos_detection(num_packets, alerts, avg_net_rate, running_total): 
+def ddos_detection(num_packets, alerts, avg_net_rate, running_total, ddos_anom): 
     if avg_net_rate.full(): 
         oldest_rate = avg_net_rate.get()
         running_total = running_total - oldest_rate + num_packets
@@ -101,15 +99,22 @@ def ddos_detection(num_packets, alerts, avg_net_rate, running_total):
         running_total = running_total + num_packets
         avg_net_rate.put(num_packets)
     
-    if avg_net_rate.qsize() >= 12: #Only run after 12 iterations of data has been collected
-        avg_rate = running_total / avg_net_rate.qsize()
+    if avg_net_rate.qsize() >= 12: #Only run after 12+ iterations of data has been collected (~1 minute)
         avg_net_rate_list = list(avg_net_rate.queue)
-        std_dev = statistics.stdev(avg_net_rate_list)
+        avg_rate = running_total / len(avg_net_rate_list)
+        high_threshold = numpy.percentile(avg_net_rate_list, 99) #Finds the 99th percentile based on the current queue
         #If num_packets is abnormally large, send alert
-        #4 stdevs contains 99.99% of all data, so only the top 0.01% triggers the alert. 
-        if num_packets > avg_rate + 4 * std_dev: 
-            alert = ["high traffic", "N/A", "N/A", "high", datetime.datetime.now().strftime("%H:%M")]
-            alerts.put(alert)
+        if num_packets > high_threshold: 
+            ddos_anom += 1
+            if ddos_anom == 3: #If num_packets is high 3 times in a row, alert as ddos
+                alert = ["ddos", "N/A", "N/A", "high", datetime.datetime.now().strftime("%H:%M")]
+                alerts.put(alert)
+            elif ddos_anom == 2: 
+                pass
+            else: 
+                alert = ["high traffic", "N/A", "N/A", "low", datetime.datetime.now().strftime("%H:%M")]
+        else: 
+            ddos_anom = 0 #Reset counter
         
 #Built in port scanner to find vulnerabilities on network
 #scan_port is what actually detects if the port is open or not
