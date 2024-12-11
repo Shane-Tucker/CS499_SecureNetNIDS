@@ -3,6 +3,7 @@ import random
 from dataclasses import dataclass
 from os import path, makedirs
 import time
+from dataset_labeler import *
 
 
 
@@ -85,7 +86,7 @@ def dataset_preprocessing(file, columns):
 
     # Add classification labels to the dataset
     data.insert(5, 'label', -1)
-    data = labeler_test1(data)
+    data = labeler_demo(data)
 
     # Convert string IP addresses to floats
     for i in range(0, len(data)):
@@ -134,20 +135,6 @@ def ipv4_float_to_string(ip: float):
     full_str_ip = split_ip[0] + '.' + split_ip[1][0:3] + '.' + split_ip[1][3:6] + '.' + split_ip[1][6:9]
 
     return full_str_ip
-
-
-
-# Dataset labeler function: test 1
-# Classification Criteria:
-# 0: frame length <= 512
-# 1: frame length > 512
-def labeler_test1(dataset):
-
-    for i in range(0, len(dataset)):
-        if(dataset.loc[i,'frame_length'] > 512): dataset.loc[i, 'label'] = 1
-        else: dataset.loc[i, 'label'] = 0
-
-    return dataset
 
 
 

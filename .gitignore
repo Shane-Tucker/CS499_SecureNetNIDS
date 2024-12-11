@@ -166,5 +166,7 @@ src/dataset/*
 !src/dataset/*/
 src/dataset/raw/*
 src/dataset/preprocessed/*
+src/dataset/labeler_data/*
 !src/dataset/raw/dataset_random.csv
 !src/dataset/preprocessed/dataset_random_preprocessed.csv
+!src/dataset/labeler_data/ip_list_example.csv
