@@ -114,11 +114,15 @@ def knn_test(model, data_test: pd.DataFrame, test_case):
 # Function to print results of running k-nearest neighbors on the dataset
 def knn_visualize(data: pd.DataFrame, results, k: int):
     # Print knn results
-    # TODO: Replace with something more performant and easier to read through
+    data.insert(5, 'prediction', results)
+
     print('\nKNN Results ( K = ', k, ')')
-    for i in range(0, len(data)):
-        query = data.iloc[i]
-        print('Packet = ', ipv4_float_to_string(query.src_ip), ' ', ipv4_float_to_string(query.dst_ip), ' ', query.src_port, ' ', query.dst_port,  ' ', query.frame_length,  ' Prediction = ', results[i])
+    groups = data.groupby(['src_ip','prediction'], sort=True, as_index=False)
+    output = groups.size()
+
+    for i in range(0, len(output)):
+        query = output.iloc[i]
+        print(ipv4_float_to_string(query['src_ip']), query['prediction'], query['size'])
 
 
 
