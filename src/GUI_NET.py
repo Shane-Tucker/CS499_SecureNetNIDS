@@ -3,6 +3,11 @@ import psutil
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QTableWidget, QTableWidgetItem, QWidget, QLineEdit, QDialog, QDialogButtonBox
 from PyQt5.QtCore import QTimer, Qt
 from datetime import datetime
+from queue import Queue
+import network_functions
+import threading
+
+stop_event = threading.Event()
 
 class IPDialog(QDialog):
     def __init__(self, ip=None, parent=None):
@@ -79,12 +84,26 @@ class MainWindow(QMainWindow):
         self.apply_stylesheet()
 
     def start_monitoring(self):
-        # Dummy function for start monitoring
-        print("Start monitoring...")
+        alerts = Queue()
+        stop_event.clear()
+        self.network_label.setText("Monitoring running.")
+        start_monitoring_thread = threading.Thread(target=network_functions.start_network_monitoring, args=(alerts, stop_event, ))
+        start_monitoring_thread.daemon = True
+        start_monitoring_thread.start()
+        def output_alerts(alerts, stop_event): 
+            while not stop_event.is_set(): 
+                while not alerts.empty(): 
+                    alert = alerts.get()
+                    print(alert)
+        start_alert_thread = threading.Thread(target=output_alerts, args=(alerts, stop_event, ))
+        start_alert_thread.daemon = True
+        start_alert_thread.start()
 
     def stop_monitoring(self):
+        stop_event.set()
         self.timer.stop()
         self.network_label.setText("Monitoring stopped.")
+        print("Sniffing Stopped")
 
     def update_network_info(self):
         # Clear previous entries

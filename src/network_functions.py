@@ -4,6 +4,55 @@ from scapy.all import *
 from queue import Queue
 import datetime
 import numpy
+import threading
+
+# Callback function to process each packet
+def create_packet_callback(packet_queue, database_queue, stop_event): 
+    def packet_callback(pkt):
+        if not stop_event.is_set():
+            packet_queue.put(pkt)
+            database_queue.put(pkt)
+    return packet_callback
+
+# Function to start sniffing in the background
+def start_sniffing(packet_queue, database_queue, stop_event):
+    print("Sniffing Started")
+    sniff(prn=create_packet_callback(packet_queue, database_queue, stop_event), iface=None, stop_filter=lambda x: stop_event.is_set())
+    
+def save_to_database(database_queue): 
+    while True:
+        pass
+        # WIP, will save packet information to DB when done
+
+# Start the sniffing in a separate thread
+def start_sniff_thread(packet_queue, database_queue, stop_event):
+    sniff_thread = threading.Thread(target=start_sniffing, args=(packet_queue, database_queue, stop_event, ))
+    sniff_thread.daemon = True
+    sniff_thread.start()
+
+# Start the saving function in the background
+def start_save_thread(): 
+    save_thread = threading.Thread(target=save_to_database)
+    save_thread.daemon = True
+    save_thread.start() 
+
+def start_network_monitoring(alerts, stop_event):
+    packet_queue = Queue()
+    database_queue = Queue()
+    arp_dict = {} #Initiate dictionary used for ARP Poisoning
+    avg_net_rate = Queue(maxsize=120) #Initiate average network rate for ddos detection
+    ddos_anom = [0] #Python is pass-by-object-reference, so make this an object so it passes properly
+    
+    start_sniff_thread(packet_queue, database_queue, stop_event)
+    
+    try: 
+        while not stop_event.is_set(): 
+            while not packet_queue.empty():
+                alerts = all_detection(packet_queue, alerts, arp_dict, avg_net_rate, ddos_anom)
+                time.sleep(5)
+            time.sleep(5)
+    except KeyboardInterrupt: 
+        print("Sniffing stopped")
 
 def all_detection(packets, alerts, arp_dict, avg_net_rate, ddos_anom):  
     threads = [] #Keep track of threads
