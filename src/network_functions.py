@@ -5,15 +5,13 @@ from queue import Queue
 import datetime
 import statistics
 
-arp_dict = {} #Initiate dictionary used for ARP Poisoning
-avg_net_rate = Queue(maxsize=12) #Initiate average network rate for ddos detection
-num_cyc = 0 #Initiate for ddos detection. Is a counter for how many times the detection has been ran
-
-def all_detection(packets, alerts):     
+def all_detection(packets, alerts, arp_dict, avg_net_rate, running_total):  
     threads = [] #Keep track of threads
     ps_packets = Queue()
     arp_pois_packets = Queue()
-    num_packets = len(packets)
+    num_packets = packets.qsize()
+    
+    ddos_detection(num_packets, alerts, avg_net_rate, running_total)
 
     #Queues elements are removed when they are looked at, so a copy of the queue is made for each different detection type
     #This ensures that each detection type gets every packet, and that thread A does not pop a packet that thread B needed
@@ -28,16 +26,16 @@ def all_detection(packets, alerts):
     det_port_scan_thread.start()
     
     #Start arp poisoning detection
-    det_arp_pois_thread = threading.Thread(target=arp_poisoning_detection, args=(arp_pois_packets, alerts,))
+    det_arp_pois_thread = threading.Thread(target=arp_poisoning_detection, args=(arp_pois_packets, alerts, arp_dict))
     det_arp_pois_thread.daemon = True
     threads.append(det_arp_pois_thread)
     det_arp_pois_thread.start()
     
-    #Start ddos detection
-    det_ddos_thread = threading.Thread(target=arp_poisoning_detection, args=(ddos_detection, alerts,))
+    '''#Start ddos detection
+    det_ddos_thread = threading.Thread(target=ddos_detection, args=(num_packets, alerts, avg_net_rate, running_total))
     det_ddos_thread.daemon = True
     threads.append(det_ddos_thread)
-    det_ddos_thread.start()
+    det_ddos_thread.start()'''
     
     for thread in threads: 
         thread.join()
@@ -81,7 +79,7 @@ def det_port_scan(packets, alerts):
             alerts.put(alert)
             
 #Works by creating a table of IPs and associated MAC addresses. If one is changed, potential ARP poisoning and alert is issued. 
-def arp_poisoning_detection(packets, alerts):
+def arp_poisoning_detection(packets, alerts, arp_dict):
     while not packets.empty(): 
         p = packets.get()
         if p.haslayer('ARP') and p['ARP'].op == 2: #Checks if ARP and if response
@@ -93,21 +91,25 @@ def arp_poisoning_detection(packets, alerts):
             else: #Add if no entry in dict
                 arp_dict[ip_src] = mac_src
       
-#Keeps a queue of last 12 (last minute) entries of the # of packets collected. If newest is abnormally large, sends alert for potential ddos
-def ddos_detection(num_packets, alerts): 
+#Keeps a queue of last 120 entries of the # of packets collected. If newest is abnormally large, sends alert for potential ddos
+def ddos_detection(num_packets, alerts, avg_net_rate, running_total): 
     if avg_net_rate.full(): 
-        avg_net_rate.pop(0)
-        avg_net_rate.append(num_packets)
+        oldest_rate = avg_net_rate.get()
+        running_total = running_total - oldest_rate + num_packets
+        avg_net_rate.put(num_packets)
     else: 
-        avg_net_rate.append(num_packets)
-    avg_rate = sum(avg_net_rate) / len(avg_net_rate)
-    std_dev = statistics.stddev(avg_net_rate)
+        running_total = running_total + num_packets
+        avg_net_rate.put(num_packets)
     
-    #If num_packets is abnormally large, send alert
-    #3 comes from 68-95-99.7 rule, basically meaning that 3 standard deviations contains 99.7% of data
-    if num_packets > avg_net_rate + 3 * std_dev: 
-        alert = ["ddos detected", "N/A", "N/A", "high", datetime.datetime.now().strftime("%H:%M")]
-        alerts.append(alert)
+    if avg_net_rate.qsize() >= 12: #Only run after 12 iterations of data has been collected
+        avg_rate = running_total / avg_net_rate.qsize()
+        avg_net_rate_list = list(avg_net_rate.queue)
+        std_dev = statistics.stdev(avg_net_rate_list)
+        #If num_packets is abnormally large, send alert
+        #4 stdevs contains 99.99% of all data, so only the top 0.01% triggers the alert. 
+        if num_packets > avg_rate + 4 * std_dev: 
+            alert = ["high traffic", "N/A", "N/A", "high", datetime.datetime.now().strftime("%H:%M")]
+            alerts.put(alert)
         
 #Built in port scanner to find vulnerabilities on network
 #scan_port is what actually detects if the port is open or not
