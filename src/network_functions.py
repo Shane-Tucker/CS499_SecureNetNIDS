@@ -1,10 +1,12 @@
 import geocoder
-from socket import *
+import socket
 from scapy.all import *
 from queue import Queue
 import datetime
 import numpy
 import threading
+import psutil
+import ipaddress
 
 # Callback function to process each packet
 def create_packet_callback(packet_queue, database_queue, stop_event): 
@@ -162,7 +164,6 @@ def ddos_detection(num_packets, alerts, avg_net_rate, ddos_anom):
             avg_net_rate.put(num_packets) #Add num_packets to the counter
                                           #Purposefully does not put if high traffic so that threshold is not skewed
             ddos_anom[0] = 0 #Reset counter
-
         
 #Built in port scanner to find vulnerabilities on network
 #scan_port is what actually detects if the port is open or not
@@ -191,3 +192,38 @@ def port_scanner(ip):
         thread.join() #Join all threads to prevent premature ending
 
     return open_ports
+
+def network_scanner(): #Finds all hosts on network
+    def get_subnet(): #Gets subnet
+        interfaces = psutil.net_if_addrs()
+        all_ips = []
+        for interfaces, addrs in interfaces.items(): 
+            for addr in addrs: 
+                if addr.family == socket.AF_INET: 
+                    ip = addr.address
+                    netmask = addr.netmask
+                    if ip and netmask: 
+                        network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+                        if str(network) not in all_ips and str(network) != "127.0.0.0/8" and str(network) != "169.254.0.0/16": #Removes possible duplicates, loopback, and APIPA
+                            all_ips.append(str(network))       
+        return all_ips
+    
+    def arp_scan(ip): #Sends out ARP scan and finds devices
+        arp_request = ARP(pdst=ip)
+        ether_frame = Ether(dst="ff:ff:ff:ff:ff:ff")
+        arp_request_packet = ether_frame / arp_request
+        answered_list = srp(arp_request_packet, timeout = 1, verbose = False)[0] #Help from: https://stackoverflow.com/questions/56411258/what-is-the-proper-way-to-scan-local-network-by-sending-arp-request-with-scapy-a
+        clients_list = []
+
+        for eachelement in answered_list:
+            clients_list.append(eachelement[1].psrc)
+        return clients_list
+    
+    
+    target = get_subnet()
+    devices = []
+    for ip in target: 
+        found_devices = arp_scan(ip)
+        for i in found_devices: 
+            devices.append(i)
+    return devices #Returns IP of all found devices in an array
