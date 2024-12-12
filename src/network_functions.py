@@ -18,7 +18,6 @@ def create_packet_callback(packet_queue, database_queue, stop_event):
 
 # Function to start sniffing in the background
 def start_sniffing(packet_queue, database_queue, stop_event):
-    print("Sniffing Started")
     sniff(prn=create_packet_callback(packet_queue, database_queue, stop_event), iface=None, stop_filter=lambda x: stop_event.is_set())
     
 def save_to_database(database_queue): 
@@ -54,7 +53,7 @@ def start_network_monitoring(alerts, stop_event):
                 time.sleep(5)
             time.sleep(5)
     except KeyboardInterrupt: 
-        print("Sniffing stopped")
+        pass
 
 def all_detection(packets, alerts, arp_dict, avg_net_rate, ddos_anom):  
     threads = [] #Keep track of threads
@@ -183,7 +182,7 @@ def port_scanner(ip):
     lock = threading.Lock() #Thread lock to ensure only one thread can change open_ports at a time
     threads = [] #List to keep track of threads
     
-    for i in range(1, 65536): #Checks every port
+    for i in range(1, 1023): #Checks this first 1023 ports (saves resources/time)
         thread = threading.Thread(target=scan_port, args=(ip, i, open_ports, lock))
         threads.append(thread)
         thread.start()
@@ -218,7 +217,6 @@ def network_scanner(): #Finds all hosts on network
         for eachelement in answered_list:
             clients_list.append(eachelement[1].psrc)
         return clients_list
-    
     
     target = get_subnet()
     devices = []

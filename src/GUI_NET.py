@@ -1,13 +1,16 @@
 import sys
 import psutil
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QTableWidget, QTableWidgetItem, QWidget, QLineEdit, QDialog, QDialogButtonBox
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QObject, QThread
 from datetime import datetime
 from queue import Queue
 import network_functions
 import threading
 
 stop_event = threading.Event()
+
+class AlertHandler(QObject):
+    new_alert = pyqtSignal(list)  # Signal to pass new alert to the main thread
 
 class IPDialog(QDialog):
     def __init__(self, ip=None, parent=None):
@@ -66,12 +69,8 @@ class MainWindow(QMainWindow):
 
         # Add a data grid (table) in the center for network traffic
         self.network_table = QTableWidget(0, 5)  # Updated to 5 columns
-        self.network_table.setHorizontalHeaderLabels(["Time", "Source IP", "Destination IP", "Data Usage", "Flagged"])
+        self.network_table.setHorizontalHeaderLabels(["Time", "Source", "Destination", "Severity", "Flag"])
         self.main_layout.addWidget(self.network_table)
-
-        # Setup a timer to update the label
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_network_info)
 
         # Connect buttons to start/stop methods
         self.start_button.clicked.connect(self.start_monitoring)
@@ -79,6 +78,10 @@ class MainWindow(QMainWindow):
 
         # Connect table click event to handle IP selection
         self.network_table.cellDoubleClicked.connect(self.handle_cell_click)
+        
+        # Create handler to update table with alert info
+        self.alert_handler = AlertHandler()
+        self.alert_handler.new_alert.connect(self.update_table)
 
         # Apply dark mode stylesheet
         self.apply_stylesheet()
@@ -90,12 +93,14 @@ class MainWindow(QMainWindow):
         start_monitoring_thread = threading.Thread(target=network_functions.start_network_monitoring, args=(alerts, stop_event, ))
         start_monitoring_thread.daemon = True
         start_monitoring_thread.start()
-        def output_alerts(alerts, stop_event): 
-            while not stop_event.is_set(): 
-                while not alerts.empty(): 
+        
+        def process_alerts(alerts, stop_event):
+            while not stop_event.is_set():
+                while not alerts.empty():
                     alert = alerts.get()
-                    print(alert)
-        start_alert_thread = threading.Thread(target=output_alerts, args=(alerts, stop_event, ))
+                    self.alert_handler.new_alert.emit(alert)  # Emit alert to main thread
+
+        start_alert_thread = threading.Thread(target=process_alerts, args=(alerts, stop_event,))
         start_alert_thread.daemon = True
         start_alert_thread.start()
 
@@ -103,25 +108,15 @@ class MainWindow(QMainWindow):
         stop_event.set()
         self.timer.stop()
         self.network_label.setText("Monitoring stopped.")
-        print("Sniffing Stopped")
 
-    def update_network_info(self):
-        # Clear previous entries
-        self.network_table.setRowCount(0)
-
-        # Fetch network traffic data using psutil
-        counters = psutil.net_io_counters(pernic=True)
-        
-        for nic, counter in counters.items():
-            row_position = self.network_table.rowCount()
-            self.network_table.insertRow(row_position)
-            # Get the current date and time
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            self.network_table.setItem(row_position, 0, QTableWidgetItem(current_time))
-            self.network_table.setItem(row_position, 1, QTableWidgetItem(nic))
-            self.network_table.setItem(row_position, 2, QTableWidgetItem("Destination IP"))  # Placeholder for destination IP
-            self.network_table.setItem(row_position, 3, QTableWidgetItem(f"{counter.bytes_sent} Bytes Sent, {counter.bytes_recv} Bytes Received"))
-            self.network_table.setItem(row_position, 4, QTableWidgetItem("No"))  # Placeholder for flagged
+    def update_table(self, alert):
+        row_position = self.network_table.rowCount()
+        self.network_table.insertRow(row_position) #Insert new row
+        self.network_table.setItem(row_position, 0, QTableWidgetItem(alert[4])) # Enter time
+        self.network_table.setItem(row_position, 1, QTableWidgetItem(alert[1])) # Enter source
+        self.network_table.setItem(row_position, 2, QTableWidgetItem(alert[2])) # Enter destination
+        self.network_table.setItem(row_position, 3, QTableWidgetItem(alert[3])) # Enter severity
+        self.network_table.setItem(row_position, 4, QTableWidgetItem(alert[0])) # Enter reason for flag
 
     def handle_cell_click(self, row, column):
         if self.ip_dropdown.currentText() == "Specific Incoming IP":
