@@ -87,27 +87,33 @@ class MainWindow(QMainWindow):
         self.apply_stylesheet()
 
     def start_monitoring(self):
+        self.start_button.setEnabled(False) # Ensures monitoring isn't started multiple times
         alerts = Queue()
+        seen_alerts = []
         stop_event.clear()
         self.network_label.setText("Monitoring running.")
         start_monitoring_thread = threading.Thread(target=network_functions.start_network_monitoring, args=(alerts, stop_event, ))
         start_monitoring_thread.daemon = True
         start_monitoring_thread.start()
         
-        def process_alerts(alerts, stop_event):
+        def process_alerts(alerts, stop_event, seen_alerts):
             while not stop_event.is_set():
                 while not alerts.empty():
                     alert = alerts.get()
-                    self.alert_handler.new_alert.emit(alert)  # Emit alert to main thread
+                    if len(seen_alerts) >= 100: #Keeps record of past 100 alerts
+                        seen_alerts.pop(0)
+                    if alert not in seen_alerts: #Removes duplicate alerts
+                        seen_alerts.append(alert)
+                        self.alert_handler.new_alert.emit(alert)  # Emit alert to main thread
 
-        start_alert_thread = threading.Thread(target=process_alerts, args=(alerts, stop_event,))
+        start_alert_thread = threading.Thread(target=process_alerts, args=(alerts, stop_event, seen_alerts, ))
         start_alert_thread.daemon = True
         start_alert_thread.start()
 
     def stop_monitoring(self):
         stop_event.set()
-        self.timer.stop()
         self.network_label.setText("Monitoring stopped.")
+        self.start_button.setEnabled(True) # Reenables the start button
 
     def update_table(self, alert):
         row_position = self.network_table.rowCount()
