@@ -144,24 +144,25 @@ def arp_poisoning_detection(packets, alerts, arp_dict):
 def ddos_detection(num_packets, alerts, avg_net_rate, ddos_anom): 
     if avg_net_rate.full(): 
         avg_net_rate.get() #Make room for next input if queue is full
-    elif avg_net_rate.qsize() <= 12:
-        avg_net_rate.put(num_packets) #Add until greater than 12 so that the rest can take over
+    elif avg_net_rate.qsize() < 12:
+        avg_net_rate.put(num_packets)
         
     if avg_net_rate.qsize() >= 12: #Only run after 12+ iterations of data has been collected (~1 minute)
         avg_net_rate_list = list(avg_net_rate.queue)
         high_threshold = numpy.percentile(avg_net_rate_list, 99.7) #Finds the 99.7th percentile based on the current queue (based on 68-95-99.7 rule)
         #If num_packets is abnormally large, send alert
         if num_packets > high_threshold: 
-            if ddos_anom[0] >= 5:
+            if ddos_anom[0] == 5:
                 alert = ["ddos", "N/A", "N/A", "high", datetime.datetime.now().strftime("%H:%M")]
                 alerts.put(alert)
             elif ddos_anom[0] == 2: #If traffic spike lasts than more than a couple seconds, send alert for high traffic
                 alert = ["high traffic", "N/A", "N/A", "low", datetime.datetime.now().strftime("%H:%M")]
                 alerts.put(alert)
+            elif ddos_anom[0] > 6: 
+                avg_net_rate.put(num_packets) # If high traffic is persistent, start including it in threshold calculation
             ddos_anom[0] = ddos_anom[0] + 1
         else: 
-            avg_net_rate.put(num_packets) #Add num_packets to the counter
-                                          #Purposefully does not put if high traffic so that threshold is not skewed
+            avg_net_rate.put(num_packets) # Only includes num_packets if no high traffic is detected
             ddos_anom[0] = 0 #Reset counter
         
 #Built in port scanner to find vulnerabilities on network
@@ -192,7 +193,7 @@ def port_scanner(ip):
 
     return open_ports
 
-def network_scanner(): #Finds all hosts on network
+def network_scanner(devices): #Finds all hosts on network
     def get_subnet(): #Gets subnet
         interfaces = psutil.net_if_addrs()
         all_ips = []
@@ -219,9 +220,26 @@ def network_scanner(): #Finds all hosts on network
         return clients_list
     
     target = get_subnet()
-    devices = []
     for ip in target: 
         found_devices = arp_scan(ip)
         for i in found_devices: 
             devices.append(i)
-    return devices #Returns IP of all found devices in an array
+
+def vulnerability_assessment(): 
+    def vuln_scan(results): 
+        results[host] = port_scanner(host)
+        
+    devices = []
+    threads = []
+    vuln_results = {}
+    network_scanner(devices)
+    
+    for host in devices: #Does each device as thread to save time
+        thread = threading.Thread(target=vuln_scan, args=(vuln_results, ))
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join() #Join all threads to prevent premature ending
+        
+    return vuln_results
