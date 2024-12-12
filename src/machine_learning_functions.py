@@ -74,9 +74,7 @@ def kmeans_visualize(data: pd.DataFrame, results, cluster_count: int):
 
     result_dataframe= pd.DataFrame(result_matrix)
 
-    # Output results
-    print('\nK-Means Clustering Results (', cluster_count, 'Clusters ):')
-    print(result_dataframe)
+    return result_dataframe
 
 
 
@@ -120,9 +118,7 @@ def knn_visualize(data: pd.DataFrame, results, k: int):
     groups = data.groupby(['src_ip','prediction'], sort=True, as_index=False)
     output = groups.size()
 
-    for i in range(0, len(output)):
-        query = output.iloc[i]
-        print(ipv4_float_to_string(query['src_ip']), query['prediction'], query['size'])
+    return output
 
 
 

@@ -84,6 +84,9 @@ def dataset_preprocessing(file, columns):
     # Read in dataset
     data = pd.read_csv(file, header=None, names=columns)
 
+    # Delete duplicate entries from the dataset
+    data = data.drop_duplicates(ignore_index=True)
+
     # Add classification labels to the dataset
     data.insert(5, 'label', -1)
     data = labeler_demo(data)

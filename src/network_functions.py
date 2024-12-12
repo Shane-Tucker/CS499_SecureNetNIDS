@@ -92,8 +92,16 @@ def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name):
             knn_results = knn_test(knn_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'])
             kmeans_results = kmeans_test(kmeans_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'])
 
-            knn_visualize(data_test, knn_results, 5)
-            kmeans_visualize(data_test, kmeans_results, 2)
+            knn_visuals = knn_visualize(data_test, knn_results, 5)
+            for i in range(0, len(knn_visuals)):
+                query = knn_visuals.iloc[i]
+                print(ipv4_float_to_string(query['src_ip']), query['prediction'], query['size'])
+
+            kmeans_visuals = kmeans_visualize(data_test, kmeans_results, 2)
+            # Output results
+            print('\nK-Means Clustering Results (', 2, 'Clusters ):')
+            print(kmeans_visuals)
+
         #print('ml thread sleep')
         time.sleep(5)
 
