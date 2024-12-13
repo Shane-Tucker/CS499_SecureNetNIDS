@@ -1,13 +1,16 @@
-import geocoder
-import socket
-from scapy.all import *
-from queue import Queue
-import datetime
-import numpy
-import threading
+# Internal classes
 from dataset_util import *
 from machine_learning_functions import *
+# Python Standard Libraries
+import socket
+from queue import Queue
+import datetime
+import threading
 from os import path, makedirs
+# External Libraries
+import geocoder
+from scapy.all import *
+import numpy
 import psutil
 import ipaddress
 
@@ -21,7 +24,6 @@ def create_packet_callback(packet_queue, dataset_queue, stop_event):
 
 # Function to start sniffing in the background
 def start_sniffing(packet_queue, dataset_queue, stop_event):
-    print("Sniffing Started")
     sniff(prn=create_packet_callback(packet_queue, dataset_queue, stop_event), iface=None, stop_filter=lambda x: stop_event.is_set())
 
 # Read in queue of packets, grab all dataset-viable packets from the queue, and save them to both today's dataset file and a dataframe
@@ -65,16 +67,14 @@ def save_to_dataset(pq):
 
     return new_dataframe
 
-
-
-
-
+# Function to run machine learning algorithms on collected packet data
 def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name, classification_results, clustering_results):
 
     # Initialize machine learning algorithms
     ml_active = False
     column_names = ['src_ip','dst_ip','src_port','dst_port','frame_length','label']
 
+    # Load dataset from file and use it to train machine learning algorithms
     if (dataset_file_name != ''):
         print('Training machine learning algorithms')
         data_train = pd.read_csv('./dataset/preprocessed/dataset_2024-12-10_preprocessed.csv', header=0, names=column_names)
@@ -84,38 +84,26 @@ def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name, 
     else:
         print('No dataset file loaded. Running program without machine learning functionality.')
 
+    # Loop until network monitoring is stopped
     while not stop_event.is_set():
-        #print('saving to dataset')
+        # Write collected packet data to dataset for future use
         data_test = save_to_dataset(dataset_queue)
-        #print('save complete')
 
         if((ml_active == True) and (len(data_test) > 0)):
-            #print('Machine learning algorithms started')
+            # Run machine learning algorithms using collected packets as test data
             knn_results = knn_test(knn_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'])
             kmeans_results = kmeans_test(kmeans_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'])
 
+            # Generate the visuals for the results of the algorithms
             knn_visuals = knn_visualize(data_test, knn_results, 5)
-            # for i in range(0, len(knn_visuals)):
-            #     query = knn_visuals.iloc[i]
-            #     print(ipv4_float_to_string(query['src_ip']), query['prediction'], query['size'])
-
             kmeans_visuals = kmeans_visualize(data_test, kmeans_results, 5)
-            # Output results
-            # print('\nK-Means Clustering Results (', 5, 'Clusters ):')
-            # print(kmeans_visuals)
 
+            # Pass the visuals to the GUI
             classification_results.put(knn_visuals)
             clustering_results.put(kmeans_visuals)
 
-        #print('ml thread sleep')
+        # Sleep for 5 seconds to let new packets come in
         time.sleep(5)
-
-
-
-
-def start_sniffing(packet_queue, database_queue, stop_event):
-    sniff(prn=create_packet_callback(packet_queue, database_queue, stop_event), iface=None, stop_filter=lambda x: stop_event.is_set())
-
 
 # Start the sniffing in a separate thread
 def start_sniff_thread(packet_queue, dataset_queue, stop_event):
@@ -129,6 +117,7 @@ def start_ml_thread(dataset_queue, stop_event, dataset_file_name, classification
     save_thread.daemon = True
     save_thread.start() 
 
+# Function to start network monitoring and machine learning systems
 def start_network_monitoring(alerts, stop_event, dataset_file_name, classification_results, clustering_results):
     packet_queue = Queue()
     dataset_queue = Queue()
@@ -148,6 +137,7 @@ def start_network_monitoring(alerts, stop_event, dataset_file_name, classificati
     except KeyboardInterrupt: 
         pass
 
+# Function to start all detection alert systems
 def all_detection(packets, alerts, arp_dict, avg_net_rate, ddos_anom):  
     threads = [] #Keep track of threads
     ps_packets = Queue()

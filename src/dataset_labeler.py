@@ -4,11 +4,13 @@
 # By internal standards, a classification of 0 represents a "normal" entry,
 # and a classification of 1 represents an entry that has the "abnormal behavior" the labeler is looking for.
 # Labels with more than 2 classification values are not formally supported by the system at this time and may encounter issues when visualizing results.
-from os import path, makedirs
-import pandas as pd # For accessing the dataset
+
+# Internal classes
 from dataset_util import *
-
-
+# Python Standard Libraries
+from os import path, makedirs
+# External Libraries
+import pandas as pd # For accessing the dataset
 
 # Dataset labeler function: large frame length
 # A simple labeler to use as an example for writing new labeler functions
@@ -22,8 +24,6 @@ def labeler_large_frame(dataset: pd.DataFrame):
         else: dataset.loc[i, 'label'] = 0
 
     return dataset
-
-
 
 # Dataset labeler function: presentation demo
 # A labeler for use in the presentation demo dataset

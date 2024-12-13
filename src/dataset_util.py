@@ -1,11 +1,12 @@
-import pandas as pd # For accessing the dataset
+# Internal classes
+from dataset_labeler import *
+# Python Standard Libraries
 import random
 from dataclasses import dataclass
 from os import path, makedirs
 import time
-from dataset_labeler import *
-
-
+# External Libraries
+import pandas as pd # For accessing the dataset
 
 # Object used to store packet information
 @dataclass
@@ -16,10 +17,10 @@ class dataset_entry():
     dst_port:int
     frame_length:int
 
-
-
 # run_datagen_selector
-#
+# only called if dataset_util.py is ran directly
+# Prompts user to enter dataset file name and performs preprocessing on the file
+# Can also choose to generate a dataset file consisting of randomly generated entries
 def run_datagen_selector():
     user_input = input("Enter dataset file name (or 'random' to generate a random dataset): ")
     column_names = ['src_ip','dst_ip','src_port','dst_port','frame_length']
@@ -35,8 +36,6 @@ def run_datagen_selector():
         dataset_preprocessing(user_input, column_names)
     else:
         print('unable to locate file: ', user_input)
-
-
 
 # Function to generate a dataset consisting of N randomly generated entries
 def generate_random_dataset(N: int):
@@ -60,8 +59,6 @@ def generate_random_dataset(N: int):
 
     output_file.close()
 
-
-
 # Function to generate a string in dataset-compatable form using the information from a datasetEntry object 
 def write_dataset_entry(entry: dataset_entry) -> str:
 
@@ -75,10 +72,10 @@ def write_dataset_entry(entry: dataset_entry) -> str:
 
     return new_entry
 
-
-
 # dataset_preprocessing
-#
+# Function to run preprocessing on the given dataset file
+# file: name of the file to preprocess
+# columns: list of columns in the dataset file
 def dataset_preprocessing(file, columns):
 
     # Read in dataset
@@ -111,8 +108,6 @@ def dataset_preprocessing(file, columns):
 
     return
 
-
-
 # ipv4_string_to_float
 # Function to convert a string containing an IPv4 address into a float
 def ipv4_string_to_float(ip: str):
@@ -130,8 +125,6 @@ def ipv4_string_to_float(ip: str):
         print(E, " caught when converting ip string to float")
         return '000.000000000'
 
-
-
 # ipv4_float_to_string
 # Function to convert a float containing an IPv4 address into a string
 def ipv4_float_to_string(ip: float):
@@ -146,8 +139,6 @@ def ipv4_float_to_string(ip: float):
     except (ValueError, TypeError, IndexError, AttributeError) as E:
         print(E, " caught when converting ip float to string")
         return '0.000.000.000'
-
-
 
 # Program start
 # Run dataset generation function if dataset_util.py is ran directly

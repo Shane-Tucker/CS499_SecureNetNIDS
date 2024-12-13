@@ -1,16 +1,17 @@
+# Internal classes
+from dataset_util import *
+# Python Standard Library
 import random
+# External Libraries
 import pandas as pd # For accessing the dataset
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
-#import matplotlib.pyplot as plt
-from dataset_util import *
-
-
 
 # run_test
 # Test driver for machine learning functions
+# only called if machine_learning_functions.py is ran directly
 def run_test():
 
     file_path = "./dataset/preprocessed/dataset_random_preprocessed.csv"
@@ -43,8 +44,6 @@ def run_test():
 
     return
 
-
-
 # kmeans_train
 # Function to train the model for k-means clustering on the given dataset
 # data: pandas DataFrame containing the preprocessed training dataset
@@ -55,8 +54,6 @@ def kmeans_train(data: pd.DataFrame, test_case, cluster_count: int):
     model = KMeans(n_clusters=cluster_count, init='random', n_init='auto').fit(data[test_case])
     return model
 
-
-
 # kmeans_test
 # Function to run the k-means clustering model to predict the given dataset
 # data: pandas DataFrame containing the preprocessed testing dataset
@@ -66,8 +63,6 @@ def kmeans_test(model, data: pd.DataFrame, test_case):
     # Run K-Means Clustering
     results = model.predict(data[test_case])
     return results
-
-
 
 # kmeans_visualize
 # Function to print results of running k-means clustering on the dataset
@@ -90,8 +85,6 @@ def kmeans_visualize(data: pd.DataFrame, results, cluster_count: int):
 
     return result_dataframe
 
-
-
 # knn_train
 # Function to train the model for the k-nearest neighbors (knn) algorithm on the given dataset
 # data: pandas DataFrame containing the preprocessed training dataset
@@ -108,8 +101,6 @@ def knn_train(data: pd.DataFrame, test_case, k: int):
     
     return model
 
-
-
 # knn_test
 # Function to run the k-nearest neighbors model to predict the given dataset
 # model: trained knn model used for making predictions
@@ -119,8 +110,6 @@ def knn_train(data: pd.DataFrame, test_case, k: int):
 def knn_test(model, data_test: pd.DataFrame, test_case):
     results = model.predict(data_test[test_case])
     return results
-
-
 
 # knn_visualize
 # Function to print results of running k-nearest neighbors on the dataset
@@ -133,8 +122,6 @@ def knn_visualize(data: pd.DataFrame, results, k: int):
     output = groups.size()
 
     return output
-
-
 
 # Program start
 # Run test driver function if machine_learning_functions.py is ran directly
