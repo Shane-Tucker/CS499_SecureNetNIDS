@@ -175,7 +175,6 @@ class MainWindow(QMainWindow):
         for i in range(0, len(data)):
             self.classification_table.insertRow(0)
             query = data.iloc[i]
-            print(ipv4_float_to_string(query['src_ip']), query['prediction'], query['size'])
         
             # Get the current date and time
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

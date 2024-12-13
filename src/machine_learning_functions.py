@@ -58,7 +58,6 @@ def kmeans_train(data: pd.DataFrame, test_case, cluster_count: int):
 # Function to run the k-means clustering model to predict the given dataset
 # data: pandas DataFrame containing the preprocessed testing dataset
 # test_case: list of strings to select the columns in the dataset that will be used as input variables for the kmeans algorithm
-# cluster_count: the number of clusters to form using k-means clustering
 def kmeans_test(model, data: pd.DataFrame, test_case):
     # Run K-Means Clustering
     results = model.predict(data[test_case])
@@ -68,10 +67,7 @@ def kmeans_test(model, data: pd.DataFrame, test_case):
 # Function to print results of running k-means clustering on the dataset
 def kmeans_visualize(data: pd.DataFrame, results, cluster_count: int):
     # Print kmeans results
-    # Create result matrix
-    #result_dataframe = pd.DataFrame(data=np.zeros((cluster_count,2)),columns=['cluster_elements', 'cluster_size_ratio'])
     result_dataframe = pd.DataFrame(data={'cluster_elements': np.zeros(cluster_count, np.int64), 'cluster_size_ratio': np.zeros(cluster_count, np.float64)})
-
 
     # Row = Dataset Label, Column = Predicted Cluster
     if (len(data) > 0):
@@ -106,18 +102,16 @@ def knn_train(data: pd.DataFrame, test_case, k: int):
 # model: trained knn model used for making predictions
 # data: pandas DataFrame containing the preprocessed testing dataset
 # test_case: list of strings to select the columns in the dataset that will be used as input variables for the knn algorithm
-# k: the value of k in the knn algorithm. the number of closest entries in dataset to use for making a prediction
 def knn_test(model, data_test: pd.DataFrame, test_case):
     results = model.predict(data_test[test_case])
     return results
 
 # knn_visualize
 # Function to print results of running k-nearest neighbors on the dataset
-def knn_visualize(data: pd.DataFrame, results, k: int):
+def knn_visualize(data: pd.DataFrame, results):
     # Print knn results
     data.insert(5, 'prediction', results)
 
-    print('\nKNN Results ( K = ', k, ')')
     groups = data.groupby(['src_ip','prediction'], sort=True, as_index=False)
     output = groups.size()
 
