@@ -77,7 +77,7 @@ def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name, 
     # Load dataset from file and use it to train machine learning algorithms
     if (dataset_file_name != ''):
         print('Training machine learning algorithms')
-        data_train = pd.read_csv('./dataset/preprocessed/dataset_2024-12-10_preprocessed.csv', header=0, names=column_names)
+        data_train = pd.read_csv(dataset_file_name, header=0, names=column_names)
         knn_model = knn_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 5)
         kmeans_model = kmeans_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 5)
         ml_active = True
