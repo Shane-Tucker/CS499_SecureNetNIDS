@@ -1,7 +1,7 @@
 import sys
 import psutil
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QTableWidget, QTableWidgetItem, QWidget, QLineEdit, QDialog, QDialogButtonBox, QFileDialog
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QObject, QThread
 from datetime import datetime
 from queue import Queue
 import network_functions
@@ -10,6 +10,10 @@ from dataset_util import *
 import pandas as pd
 
 stop_event = threading.Event()
+
+
+class AlertHandler(QObject):
+    new_alert = pyqtSignal(list)  # Signal to pass new alert to the main thread
 
 # class IPDialog(QDialog):
 #     def __init__(self, ip=None, parent=None):
@@ -93,16 +97,13 @@ class MainWindow(QMainWindow):
         self.clustering_result_table.setMaximumHeight(100)
         self.main_layout.addWidget(self.clustering_result_table)
 
-        # Add a data grid (table) in the center for network traffic
-        self.alert_table_label = QLabel("Detection Alerts")
-        self.main_layout.addWidget(self.alert_table_label)
-        self.alert_table = QTableWidget(0, 5)  # Updated to 5 columns
-        self.alert_table.setHorizontalHeaderLabels(["Time", "Source IP", "Predicted Classification", "Number of Occurences", ""])
-        self.main_layout.addWidget(self.alert_table)
-
         # Setup a timer to update the label
         #self.timer = QTimer(self)
         #self.timer.timeout.connect(self.update_network_info)
+
+        self.network_table = QTableWidget(0, 5)  # Updated to 5 columns
+        self.network_table.setHorizontalHeaderLabels(["Time", "Source", "Destination", "Severity", "Flag"])
+        self.main_layout.addWidget(self.network_table)
 
         # Connect buttons to start/stop methods
         self.start_button.clicked.connect(self.start_monitoring)
@@ -114,25 +115,38 @@ class MainWindow(QMainWindow):
 
         # Connect table click event to handle IP selection
         #self.classification_table.cellDoubleClicked.connect(self.handle_cell_click)
+        
+        # Create handler to update table with alert info
+        self.alert_handler = AlertHandler()
+        self.alert_handler.new_alert.connect(self.update_table)
 
         # Apply dark mode stylesheet
         self.apply_stylesheet()
 
     def start_monitoring(self):
+        self.start_button.setEnabled(False) # Ensures monitoring isn't started multiple times
         alerts = Queue()
         classification_results = Queue()
         clustering_results = Queue()
+        seen_alerts = []
+
         stop_event.clear()
         self.network_label.setText("Monitoring running.")
         start_monitoring_thread = threading.Thread(target=network_functions.start_network_monitoring, args=(alerts, stop_event, self.dataset_file_name, classification_results, clustering_results))
         start_monitoring_thread.daemon = True
         start_monitoring_thread.start()
-        def output_alerts(alerts, stop_event): 
-            while not stop_event.is_set(): 
-                while not alerts.empty(): 
+        
+        def process_alerts(alerts, stop_event, seen_alerts):
+            while not stop_event.is_set():
+                while not alerts.empty():
                     alert = alerts.get()
-                    print(alert)
-        start_alert_thread = threading.Thread(target=output_alerts, args=(alerts, stop_event, ))
+                    if len(seen_alerts) >= 100: #Keeps record of past 100 alerts
+                        seen_alerts.pop(0)
+                    if alert not in seen_alerts: #Removes duplicate alerts
+                        seen_alerts.append(alert)
+                        self.alert_handler.new_alert.emit(alert)  # Emit alert to main thread
+
+        start_alert_thread = threading.Thread(target=process_alerts, args=(alerts, stop_event, seen_alerts, ))
         start_alert_thread.daemon = True
         start_alert_thread.start()
         def output_ml_results(classification_results, clustering_results, stop_event):
@@ -151,6 +165,7 @@ class MainWindow(QMainWindow):
         stop_event.set()
         #self.timer.stop()
         self.network_label.setText("Monitoring stopped.")
+        self.start_button.setEnabled(True) # Reenables the start button
         print("Sniffing Stopped")
 
     def load_dataset(self):
@@ -205,6 +220,15 @@ class MainWindow(QMainWindow):
     #         if ip_dialog.exec_():
     #             selected_ip = ip_dialog.get_ip()
     #             print("Selected IP:", selected_ip)  # Process the selected IP
+        
+    def update_table(self, alert):
+        row_position = self.network_table.rowCount()
+        self.network_table.insertRow(row_position) #Insert new row
+        self.network_table.setItem(row_position, 0, QTableWidgetItem(alert[4])) # Enter time
+        self.network_table.setItem(row_position, 1, QTableWidgetItem(alert[1])) # Enter source
+        self.network_table.setItem(row_position, 2, QTableWidgetItem(alert[2])) # Enter destination
+        self.network_table.setItem(row_position, 3, QTableWidgetItem(alert[3])) # Enter severity
+        self.network_table.setItem(row_position, 4, QTableWidgetItem(alert[0])) # Enter reason for flag
 
     def apply_stylesheet(self):
         dark_mode_stylesheet = """

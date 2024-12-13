@@ -1,5 +1,5 @@
 import geocoder
-from socket import *
+import socket
 from scapy.all import *
 from queue import Queue
 import datetime
@@ -8,6 +8,8 @@ import threading
 from dataset_util import *
 from machine_learning_functions import *
 from os import path, makedirs
+import psutil
+import ipaddress
 
 # Callback function to process each packet
 def create_packet_callback(packet_queue, dataset_queue, stop_event): 
@@ -111,6 +113,9 @@ def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name, 
 
 
 
+def start_sniffing(packet_queue, database_queue, stop_event):
+    sniff(prn=create_packet_callback(packet_queue, database_queue, stop_event), iface=None, stop_filter=lambda x: stop_event.is_set())
+
 
 # Start the sniffing in a separate thread
 def start_sniff_thread(packet_queue, dataset_queue, stop_event):
@@ -141,7 +146,7 @@ def start_network_monitoring(alerts, stop_event, dataset_file_name, classificati
                 time.sleep(5)
             time.sleep(5)
     except KeyboardInterrupt: 
-        print("Sniffing stopped")
+        pass
 
 def all_detection(packets, alerts, arp_dict, avg_net_rate, ddos_anom):  
     threads = [] #Keep track of threads
@@ -232,26 +237,26 @@ def arp_poisoning_detection(packets, alerts, arp_dict):
 def ddos_detection(num_packets, alerts, avg_net_rate, ddos_anom): 
     if avg_net_rate.full(): 
         avg_net_rate.get() #Make room for next input if queue is full
-    elif avg_net_rate.qsize() <= 12:
-        avg_net_rate.put(num_packets) #Add until greater than 12 so that the rest can take over
+    elif avg_net_rate.qsize() < 12:
+        avg_net_rate.put(num_packets)
         
     if avg_net_rate.qsize() >= 12: #Only run after 12+ iterations of data has been collected (~1 minute)
         avg_net_rate_list = list(avg_net_rate.queue)
         high_threshold = numpy.percentile(avg_net_rate_list, 99.7) #Finds the 99.7th percentile based on the current queue (based on 68-95-99.7 rule)
         #If num_packets is abnormally large, send alert
         if num_packets > high_threshold: 
-            if ddos_anom[0] >= 5:
+            if ddos_anom[0] == 5:
                 alert = ["ddos", "N/A", "N/A", "high", datetime.datetime.now().strftime("%H:%M")]
                 alerts.put(alert)
             elif ddos_anom[0] == 2: #If traffic spike lasts than more than a couple seconds, send alert for high traffic
                 alert = ["high traffic", "N/A", "N/A", "low", datetime.datetime.now().strftime("%H:%M")]
                 alerts.put(alert)
+            elif ddos_anom[0] > 6: 
+                avg_net_rate.put(num_packets) # If high traffic is persistent, start including it in threshold calculation
             ddos_anom[0] = ddos_anom[0] + 1
         else: 
-            avg_net_rate.put(num_packets) #Add num_packets to the counter
-                                          #Purposefully does not put if high traffic so that threshold is not skewed
+            avg_net_rate.put(num_packets) # Only includes num_packets if no high traffic is detected
             ddos_anom[0] = 0 #Reset counter
-
         
 #Built in port scanner to find vulnerabilities on network
 #scan_port is what actually detects if the port is open or not
@@ -271,7 +276,7 @@ def port_scanner(ip):
     lock = threading.Lock() #Thread lock to ensure only one thread can change open_ports at a time
     threads = [] #List to keep track of threads
     
-    for i in range(1, 65536): #Checks every port
+    for i in range(1, 1023): #Checks this first 1023 ports (saves resources/time)
         thread = threading.Thread(target=scan_port, args=(ip, i, open_ports, lock))
         threads.append(thread)
         thread.start()
@@ -280,3 +285,54 @@ def port_scanner(ip):
         thread.join() #Join all threads to prevent premature ending
 
     return open_ports
+
+def network_scanner(devices): #Finds all hosts on network
+    def get_subnet(): #Gets subnet
+        interfaces = psutil.net_if_addrs()
+        all_ips = []
+        for interfaces, addrs in interfaces.items(): 
+            for addr in addrs: 
+                if addr.family == socket.AF_INET: 
+                    ip = addr.address
+                    netmask = addr.netmask
+                    if ip and netmask: 
+                        network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+                        if str(network) not in all_ips and str(network) != "127.0.0.0/8" and str(network) != "169.254.0.0/16": #Removes possible duplicates, loopback, and APIPA
+                            all_ips.append(str(network))       
+        return all_ips
+    
+    def arp_scan(ip): #Sends out ARP scan and finds devices
+        arp_request = ARP(pdst=ip)
+        ether_frame = Ether(dst="ff:ff:ff:ff:ff:ff")
+        arp_request_packet = ether_frame / arp_request
+        answered_list = srp(arp_request_packet, timeout = 1, verbose = False)[0] #Help from: https://stackoverflow.com/questions/56411258/what-is-the-proper-way-to-scan-local-network-by-sending-arp-request-with-scapy-a
+        clients_list = []
+
+        for eachelement in answered_list:
+            clients_list.append(eachelement[1].psrc)
+        return clients_list
+    
+    target = get_subnet()
+    for ip in target: 
+        found_devices = arp_scan(ip)
+        for i in found_devices: 
+            devices.append(i)
+
+def vulnerability_assessment(): 
+    def vuln_scan(results): 
+        results[host] = port_scanner(host)
+        
+    devices = []
+    threads = []
+    vuln_results = {}
+    network_scanner(devices)
+    
+    for host in devices: #Does each device as thread to save time
+        thread = threading.Thread(target=vuln_scan, args=(vuln_results, ))
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join() #Join all threads to prevent premature ending
+        
+    return vuln_results
