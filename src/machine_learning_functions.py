@@ -27,11 +27,19 @@ def run_test():
     # Run various machine learning algorithms and measure their prediction accuracy for the given dataset    
     knn_model = knn_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 5)
     knn_results = knn_test(knn_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'])
-    knn_visualize(data_test, knn_results, 5)
+    knn_visuals = knn_visualize(data_test, knn_results, 5)
 
-    kmeans_model = kmeans_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 2)
+    kmeans_model = kmeans_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 5)
     kmeans_results = kmeans_test(kmeans_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'])
-    kmeans_visualize(data_test, kmeans_results, 2)
+    kmeans_visuals = kmeans_visualize(data_test, kmeans_results, 5)
+    
+    # Output results
+    print('\nKNN Results ( K = ', 5, ')')
+    for i in range(0, len(knn_visuals)):
+                query = knn_visuals.iloc[i]
+                print(ipv4_float_to_string(query['src_ip']), query['prediction'], query['size'])
+    print('\nK-Means Clustering Results (', 5, 'Clusters ):')
+    print(kmeans_visuals)
 
     return
 
@@ -66,13 +74,19 @@ def kmeans_test(model, data: pd.DataFrame, test_case):
 def kmeans_visualize(data: pd.DataFrame, results, cluster_count: int):
     # Print kmeans results
     # Create result matrix
-    result_matrix = np.zeros((1,cluster_count), int)
+    #result_dataframe = pd.DataFrame(data=np.zeros((cluster_count,2)),columns=['cluster_elements', 'cluster_size_ratio'])
+    result_dataframe = pd.DataFrame(data={'cluster_elements': np.zeros(cluster_count, np.int64), 'cluster_size_ratio': np.zeros(cluster_count, np.float64)})
+
 
     # Row = Dataset Label, Column = Predicted Cluster
-    for i in range(0, len(data)):
-        result_matrix[0][results[i]] = result_matrix[0][results[i]] + 1
+    if (len(data) > 0):
+        for i in range(0, len(data)):
+            result_dataframe.loc[results[i], 'cluster_elements'] = result_dataframe.loc[results[i], 'cluster_elements'] + 1
+        
+        for i in range(0, cluster_count):
+            result_dataframe.loc[i, 'cluster_size_ratio']  = result_dataframe.loc[i, 'cluster_elements'] / len(data)
 
-    result_dataframe= pd.DataFrame(result_matrix)
+    result_dataframe = result_dataframe.sort_values(by=['cluster_size_ratio'], ascending=False, ignore_index=True)
 
     return result_dataframe
 

@@ -67,7 +67,7 @@ def save_to_dataset(pq):
 
 
 
-def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name):
+def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name, classification_results, clustering_results):
 
     # Initialize machine learning algorithms
     ml_active = False
@@ -77,7 +77,7 @@ def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name):
         print('Training machine learning algorithms')
         data_train = pd.read_csv('./dataset/preprocessed/dataset_2024-12-10_preprocessed.csv', header=0, names=column_names)
         knn_model = knn_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 5)
-        kmeans_model = kmeans_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 2)
+        kmeans_model = kmeans_train(data_train, ['src_ip','dst_ip','src_port','dst_port','frame_length'], 5)
         ml_active = True
     else:
         print('No dataset file loaded. Running program without machine learning functionality.')
@@ -93,14 +93,17 @@ def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name):
             kmeans_results = kmeans_test(kmeans_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'])
 
             knn_visuals = knn_visualize(data_test, knn_results, 5)
-            for i in range(0, len(knn_visuals)):
-                query = knn_visuals.iloc[i]
-                print(ipv4_float_to_string(query['src_ip']), query['prediction'], query['size'])
+            # for i in range(0, len(knn_visuals)):
+            #     query = knn_visuals.iloc[i]
+            #     print(ipv4_float_to_string(query['src_ip']), query['prediction'], query['size'])
 
-            kmeans_visuals = kmeans_visualize(data_test, kmeans_results, 2)
+            kmeans_visuals = kmeans_visualize(data_test, kmeans_results, 5)
             # Output results
-            print('\nK-Means Clustering Results (', 2, 'Clusters ):')
-            print(kmeans_visuals)
+            # print('\nK-Means Clustering Results (', 5, 'Clusters ):')
+            # print(kmeans_visuals)
+
+            classification_results.put(knn_visuals)
+            clustering_results.put(kmeans_visuals)
 
         #print('ml thread sleep')
         time.sleep(5)
@@ -116,12 +119,12 @@ def start_sniff_thread(packet_queue, dataset_queue, stop_event):
     sniff_thread.start()
 
 # Start the saving function in the background
-def start_ml_thread(dataset_queue, stop_event, dataset_file_name): 
-    save_thread = threading.Thread(target=start_machine_learning, args=(dataset_queue, stop_event, dataset_file_name))
+def start_ml_thread(dataset_queue, stop_event, dataset_file_name, classification_results, clustering_results): 
+    save_thread = threading.Thread(target=start_machine_learning, args=(dataset_queue, stop_event, dataset_file_name, classification_results, clustering_results))
     save_thread.daemon = True
     save_thread.start() 
 
-def start_network_monitoring(alerts, stop_event, dataset_file_name):
+def start_network_monitoring(alerts, stop_event, dataset_file_name, classification_results, clustering_results):
     packet_queue = Queue()
     dataset_queue = Queue()
     arp_dict = {} #Initiate dictionary used for ARP Poisoning
@@ -129,7 +132,7 @@ def start_network_monitoring(alerts, stop_event, dataset_file_name):
     ddos_anom = [0] #Python is pass-by-object-reference, so make this an object so it passes properly
     
     start_sniff_thread(packet_queue, dataset_queue, stop_event)
-    start_ml_thread(dataset_queue, stop_event, dataset_file_name)
+    start_ml_thread(dataset_queue, stop_event, dataset_file_name, classification_results, clustering_results)
     
     try: 
         while not stop_event.is_set(): 

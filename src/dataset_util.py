@@ -116,28 +116,36 @@ def dataset_preprocessing(file, columns):
 # ipv4_string_to_float
 # Function to convert a string containing an IPv4 address into a float
 def ipv4_string_to_float(ip: str):
-    split_ip = ip.split('.')
+    try:
+        split_ip = ip.split('.')
 
-    # Append leading 0's to any ip segment with a value of less than 100 to give every segment a 3-digit length
-    for i in range(1, len(split_ip)):
-        if len(split_ip[i]) == 2: split_ip[i] = '0' + split_ip[i]
-        elif len(split_ip[i]) == 1: split_ip[i] = '00' + split_ip[i]
+        # Append leading 0's to any ip segment with a value of less than 100 to give every segment a 3-digit length
+        for i in range(1, len(split_ip)):
+            if len(split_ip[i]) == 2: split_ip[i] = '0' + split_ip[i]
+            elif len(split_ip[i]) == 1: split_ip[i] = '00' + split_ip[i]
 
-    float_ready_string = split_ip[0] + '.' + split_ip[1] + split_ip[2] + split_ip[3]
-    return float_ready_string
+        float_ready_string = split_ip[0] + '.' + split_ip[1] + split_ip[2] + split_ip[3]
+        return float_ready_string
+    except (ValueError, TypeError, IndexError, AttributeError) as E:
+        print(E, " caught when converting ip string to float")
+        return '000.000000000'
 
 
 
 # ipv4_float_to_string
 # Function to convert a float containing an IPv4 address into a string
 def ipv4_float_to_string(ip: float):
-    str_ip = str(ip)
+    try:
+        str_ip = str(ip)
 
-    split_ip = str_ip.split('.')
+        split_ip = str_ip.split('.')
 
-    full_str_ip = split_ip[0] + '.' + split_ip[1][0:3] + '.' + split_ip[1][3:6] + '.' + split_ip[1][6:9]
+        full_str_ip = split_ip[0] + '.' + split_ip[1][0:3] + '.' + split_ip[1][3:6] + '.' + split_ip[1][6:9]
 
-    return full_str_ip
+        return full_str_ip
+    except (ValueError, TypeError, IndexError, AttributeError) as E:
+        print(E, " caught when converting ip float to string")
+        return '0.000.000.000'
 
 
 
