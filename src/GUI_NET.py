@@ -72,8 +72,8 @@ class MainWindow(QMainWindow):
         self.clustering_result_table = QTableWidget(2, 5)  # Updated to 5 columns
         self.clustering_result_table.setHorizontalHeaderLabels(["c1", "c2", "c3", "c4", "c5"])
         self.clustering_result_table.setVerticalHeaderLabels(["Packets in Cluster", "Total Packet %"])
-        self.clustering_result_table.setMinimumHeight(98)
-        self.clustering_result_table.setMaximumHeight(100)
+        self.clustering_result_table.setMinimumHeight(150)
+        self.clustering_result_table.setMaximumHeight(150)
         self.main_layout.addWidget(self.clustering_result_table)
 
         # Add a data grid (table) in the center for detected alerts

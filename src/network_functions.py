@@ -95,7 +95,7 @@ def start_machine_learning(dataset_queue: Queue, stop_event, dataset_file_name, 
             kmeans_results = kmeans_test(kmeans_model, data_test, ['src_ip','dst_ip','src_port','dst_port','frame_length'])
 
             # Generate the visuals for the results of the algorithms
-            knn_visuals = knn_visualize(data_test, knn_results, 5)
+            knn_visuals = knn_visualize(data_test, knn_results)
             kmeans_visuals = kmeans_visualize(data_test, kmeans_results, 5)
 
             # Pass the visuals to the GUI
@@ -204,7 +204,7 @@ def det_port_scan(packets, alerts):
     for i in counts: 
         if len(counts[i]) >= min_att_ports: #Compares the list of unique ports to the set minimum
             divide = i.find("_") #Splits the string into source and dest ip
-            current_time = datetime.datetime.now()
+            current_time = datetime.now()
             #ip_src = i[0:divide]
             #ip_dst = i[divide + 1:]
             alert = ["port scan", i[0:divide], i[divide + 1:], "low", current_time.strftime("%H:%M")] 
@@ -218,7 +218,7 @@ def arp_poisoning_detection(packets, alerts, arp_dict):
             ip_src = p['ARP'].psrc
             mac_src = p['ARP'].hwsrc
             if ip_src in arp_dict and arp_dict[ip_src] != mac_src: #Checks if ip is in dictionary already and if it matches or not
-                alert = ["arp poisoning", arp_dict[ip_src], mac_src, "medium", datetime.datetime.now().strftime("%H:%M"), ip_src] #Creates alert if IP and MAC do not match
+                alert = ["arp poisoning", arp_dict[ip_src], mac_src, "medium", datetime.now().strftime("%H:%M"), ip_src] #Creates alert if IP and MAC do not match
                 alerts.put(alert)
             else: #Add if no entry in dict
                 arp_dict[ip_src] = mac_src
@@ -236,10 +236,10 @@ def ddos_detection(num_packets, alerts, avg_net_rate, ddos_anom):
         #If num_packets is abnormally large, send alert
         if num_packets > high_threshold: 
             if ddos_anom[0] == 5:
-                alert = ["ddos", "N/A", "N/A", "high", datetime.datetime.now().strftime("%H:%M")]
+                alert = ["ddos", "N/A", "N/A", "high", datetime.now().strftime("%H:%M")]
                 alerts.put(alert)
             elif ddos_anom[0] == 2: #If traffic spike lasts than more than a couple seconds, send alert for high traffic
-                alert = ["high traffic", "N/A", "N/A", "low", datetime.datetime.now().strftime("%H:%M")]
+                alert = ["high traffic", "N/A", "N/A", "low", datetime.now().strftime("%H:%M")]
                 alerts.put(alert)
             elif ddos_anom[0] > 6: 
                 avg_net_rate.put(num_packets) # If high traffic is persistent, start including it in threshold calculation
